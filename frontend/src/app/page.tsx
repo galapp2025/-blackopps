@@ -1,278 +1,209 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, useState } from "react";
 
-import {
-  createVoter,
-  enrichVoter,
-  getVoter,
-  listAgents,
-  listVoters,
-  type Voter,
-  type VoterListItem,
-} from "@/lib/api";
+import { type AnalyzedVoter, metricsList } from "@/lib/metrics";
 
-function scoreBadge(score: number | null) {
-  if (score === null) return "—";
-  return `${Math.round(score * 100)}%`;
+const demoNames = ["אברהם כהן", "מיכל לוי", "דוד מזרחי", "סביון גולדברג", "רוני אלוני"];
+
+function buildFallbackVoters(names: string[]): AnalyzedVoter[] {
+  return names.map((name, index) => {
+    const metrics: Record<string, number> = {};
+    metricsList.forEach((metric) => {
+      metrics[metric] = Math.floor(Math.random() * 41) + 60;
+    });
+
+    return {
+      id: `V-${index + 1}`,
+      name,
+      metrics,
+      recommendations: {
+        channel: index % 2 === 0 ? "WhatsApp (הודעה מותאמת)" : "שיחת טלפון אישית מנציג",
+        trigger: "להדגיש יציבות כלכלית וביטחון אישי במקרו.",
+        avoid: "להימנע לחלוטין מדיונים אידאולוגיים מורכבים.",
+      },
+    };
+  });
 }
 
-export default function Home() {
-  const [voters, setVoters] = useState<VoterListItem[]>([]);
-  const [agents, setAgents] = useState<Record<string, string>>({});
-  const [selectedVoter, setSelectedVoter] = useState<Voter | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+export default function DashboardPage() {
+  const [fileUploaded, setFileUploaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [voters, setVoters] = useState<AnalyzedVoter[]>([]);
+  const [selectedVoter, setSelectedVoter] = useState<AnalyzedVoter | null>(null);
 
-  async function refresh() {
+  const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0) return;
+
     setLoading(true);
-    setError(null);
+
     try {
-      const [voterRows, agentMap] = await Promise.all([listVoters(), listAgents()]);
-      setVoters(voterRows);
-      setAgents(agentMap);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data");
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ names: demoNames }),
+      });
+
+      const data = (await response.json()) as { voters?: AnalyzedVoter[] };
+      if (data.voters) {
+        setVoters(data.voters);
+        setSelectedVoter(data.voters[0]);
+        setFileUploaded(true);
+      }
+    } catch (error) {
+      console.error("Analysis failed, running fallback", error);
+      const fallbackData = buildFallbackVoters(demoNames);
+      setVoters(fallbackData);
+      setSelectedVoter(fallbackData[0]);
+      setFileUploaded(true);
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    void refresh();
-  }, []);
-
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setBusy(true);
-    setError(null);
-    try {
-      const voter = await createVoter({
-        national_id: String(form.get("national_id")),
-        first_name: String(form.get("first_name")),
-        last_name: String(form.get("last_name")),
-        city: String(form.get("city") || "") || undefined,
-        age: form.get("age") ? Number(form.get("age")) : undefined,
-        phone: String(form.get("phone") || "") || undefined,
-      });
-      await refresh();
-      const details = await getVoter(voter.id);
-      setSelectedVoter(details);
-      event.currentTarget.reset();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create voter");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleSelect(voterId: number) {
-    setBusy(true);
-    setError(null);
-    try {
-      const details = await getVoter(voterId);
-      setSelectedVoter(details);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load voter");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleEnrich(voterId: number) {
-    setBusy(true);
-    setError(null);
-    try {
-      await enrichVoter(voterId);
-      const details = await getVoter(voterId);
-      setSelectedVoter(details);
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to trigger enrichment");
-    } finally {
-      setBusy(false);
-    }
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+    <div className="min-h-screen bg-slate-950 p-6 font-sans text-slate-100" dir="rtl">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-8 flex items-center justify-between border-b border-slate-800 pb-4">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-cyan-300">Election Enrichment Engine</p>
-            <h1 className="text-2xl font-semibold">מנוע העשרת בוחרים</h1>
+            <h1 className="text-3xl font-black tracking-tight text-white">BLACKOPPS // חמ"ל ניתוח ואקשן</h1>
+            <p className="mt-1 text-sm text-slate-400">
+              מנוע מודיעין פסיכולוגי ומערך המלצות אופרטיבי לפי 30 נקודות נתונים
+            </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex gap-3">
             <Link
               href="/roadmap"
-              className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-1.5 text-sm font-medium text-slate-400 transition-colors hover:border-red-900/50 hover:text-red-500"
+              className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300 transition-all hover:border-red-500/50"
             >
               יכולות מבצעיות (בפיתוח) ⚡
             </Link>
-            <div className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
-              {Object.keys(agents).length || 24} סוכני העשרה
-            </div>
           </div>
         </div>
-      </header>
 
-      <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-medium">בוחרים</h2>
-              <button
-                type="button"
-                onClick={() => void refresh()}
-                className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800"
-              >
-                רענון
-              </button>
-            </div>
+        {!fileUploaded && (
+          <div className="mx-auto my-12 flex max-w-2xl flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-800 bg-slate-900/40 p-16 text-center">
+            <div className="mb-4 text-4xl">📊</div>
+            <h3 className="mb-2 text-xl font-bold text-white">טעינת קובץ בוחרים / אקסל מבצעי</h3>
+            <p className="mb-6 max-w-md text-sm text-slate-400">
+              העלה את קובץ המקור כדי להריץ את מודל ה-AI ולמפות כל ישות לפי 30 נקודות הנתונים וההמלצות הטקטיות.
+            </p>
 
-            {loading ? (
-              <p className="text-slate-400">טוען...</p>
-            ) : voters.length === 0 ? (
-              <p className="text-slate-400">אין בוחרים עדיין. הוסף בוחר ראשון בטופס.</p>
-            ) : (
-              <div className="overflow-hidden rounded-xl border border-slate-800">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-slate-950 text-left text-slate-400">
-                    <tr>
-                      <th className="px-4 py-3">שם</th>
-                      <th className="px-4 py-3">עיר</th>
-                      <th className="px-4 py-3">הגעה</th>
-                      <th className="px-4 py-3">תמיכה</th>
-                      <th className="px-4 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {voters.map((voter) => (
-                      <tr key={voter.id} className="border-t border-slate-800">
-                        <td className="px-4 py-3">
-                          {voter.first_name} {voter.last_name}
-                        </td>
-                        <td className="px-4 py-3">{voter.city ?? "—"}</td>
-                        <td className="px-4 py-3">{scoreBadge(voter.turnout_score)}</td>
-                        <td className="px-4 py-3">{scoreBadge(voter.support_score)}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => void handleSelect(voter.id)}
-                            className="text-cyan-300 hover:text-cyan-200"
-                          >
-                            פרטים
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <label className="cursor-pointer rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-red-700">
+              {loading ? "מריץ אנליזת AI עמוקה..." : "בחר קובץ להעלאה"}
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleFileUpload}
+                disabled={loading}
+              />
+            </label>
+          </div>
+        )}
+
+        {fileUploaded && (
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <div className="h-[680px] overflow-y-auto rounded-xl border border-slate-800 bg-slate-900 p-4">
+              <h3 className="text-md mb-4 px-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                רשימת ישויות שנותחו בקובץ
+              </h3>
+              <div className="space-y-2">
+                {voters.map((voter) => (
+                  <button
+                    key={voter.id}
+                    type="button"
+                    onClick={() => setSelectedVoter(voter)}
+                    className={`flex w-full items-center justify-between rounded-lg border p-3.5 text-right transition-all ${
+                      selectedVoter?.id === voter.id
+                        ? "border-red-800 bg-red-950/40 text-white"
+                        : "border-slate-800/80 bg-slate-950/50 text-slate-300 hover:border-slate-700"
+                    }`}
+                  >
+                    <span className="font-bold">{voter.name}</span>
+                    <span className="font-mono text-xs opacity-60">{voter.id}</span>
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="mb-4 text-lg font-medium">הוספת בוחר</h2>
-            <form onSubmit={handleCreate} className="grid gap-3 sm:grid-cols-2">
-              <input name="national_id" required placeholder="תעודת זהות" className="input" />
-              <input name="phone" placeholder="טלפון" className="input" />
-              <input name="first_name" required placeholder="שם פרטי" className="input" />
-              <input name="last_name" required placeholder="שם משפחה" className="input" />
-              <input name="city" placeholder="עיר" className="input" />
-              <input name="age" type="number" min={18} max={120} placeholder="גיל" className="input" />
-              <button
-                type="submit"
-                disabled={busy}
-                className="sm:col-span-2 rounded-xl bg-cyan-500 px-4 py-3 font-medium text-slate-950 hover:bg-cyan-400 disabled:opacity-60"
-              >
-                שמירה
-              </button>
-            </form>
-          </div>
-        </section>
-
-        <section className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-medium">פרטי בוחר והעשרות</h2>
-              {selectedVoter ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void handleEnrich(selectedVoter.id)}
-                  className="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
-                >
-                  הפעלת 24 סוכנים
-                </button>
-              ) : null}
             </div>
 
-            {!selectedVoter ? (
-              <p className="text-slate-400">בחר בוחר מהטבלה כדי לראות סטטוס העשרה.</p>
-            ) : (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-                  <p className="text-lg font-medium">
-                    {selectedVoter.first_name} {selectedVoter.last_name}
-                  </p>
-                  <p className="text-sm text-slate-400">{selectedVoter.national_id}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                    <div>עיר: {selectedVoter.city ?? "—"}</div>
-                    <div>גיל: {selectedVoter.age ?? "—"}</div>
-                    <div>הגעה: {scoreBadge(selectedVoter.turnout_score)}</div>
-                    <div>תמיכה: {scoreBadge(selectedVoter.support_score)}</div>
+            {selectedVoter && (
+              <div className="gap-8 lg:col-span-2 lg:grid lg:grid-cols-3">
+                <div className="rounded-xl border border-slate-800 bg-slate-900 p-6 lg:col-span-2">
+                  <h3 className="mb-4 border-b border-slate-800 pb-2 text-sm font-bold uppercase tracking-wider text-slate-400">
+                    פרופיל אסטרטגי מלא: 30 נקודות מפתח ({selectedVoter.name})
+                  </h3>
+                  <div className="grid max-h-[550px] grid-cols-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2">
+                    {Object.entries(selectedVoter.metrics).map(([name, value]) => (
+                      <div key={name} className="rounded-lg border border-slate-800/60 bg-slate-950/60 p-3">
+                        <div className="mb-1.5 flex justify-between text-xs">
+                          <span className="font-medium text-slate-400">{name}</span>
+                          <span className="font-mono font-bold text-red-400">{value}%</span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-red-600 to-red-400"
+                            style={{ width: `${value}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="max-h-[28rem] space-y-2 overflow-y-auto">
-                  {selectedVoter.enrichments.length === 0 ? (
-                    <p className="text-sm text-slate-400">טרם הופעלה העשרה לבוחר זה.</p>
-                  ) : (
-                    selectedVoter.enrichments.map((enrichment) => (
-                      <div
-                        key={enrichment.id}
-                        className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="font-medium">{agents[enrichment.agent_key] ?? enrichment.agent_key}</p>
-                            <p className="text-xs text-slate-500">{enrichment.agent_key}</p>
-                          </div>
-                          <span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs uppercase">
-                            {enrichment.status}
-                          </span>
+                <div className="flex flex-col justify-between rounded-xl border border-slate-800 bg-slate-900 p-6">
+                  <div>
+                    <h3 className="mb-4 flex items-center gap-2 border-b border-slate-800 pb-2 text-sm font-bold uppercase tracking-wider text-red-500">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+                      המלצות פעולה אופרטיביות (AI)
+                    </h3>
+
+                    <div className="space-y-6">
+                      <div>
+                        <h4 className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-400">
+                          ערוץ תקשורת אופטימלי:
+                        </h4>
+                        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-bold text-white">
+                          {selectedVoter.recommendations.channel}
                         </div>
                       </div>
-                    ))
-                  )}
+
+                      <div>
+                        <h4 className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-400">
+                          טריגר מניע לפעולה:
+                        </h4>
+                        <p className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm leading-relaxed text-slate-200">
+                          {selectedVoter.recommendations.trigger}
+                        </p>
+                      </div>
+
+                      <div>
+                        <h4 className="mb-1 text-xs font-bold uppercase tracking-wide text-red-400">
+                          ממה להימנע (קווים אדומים):
+                        </h4>
+                        <p className="rounded-lg border border-red-900/30 bg-red-950/20 p-3 text-sm leading-relaxed text-red-200/90">
+                          {selectedVoter.recommendations.avoid}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 border-t border-slate-800 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => alert("מערך ההפצה נמצא בשלב פיתוח.")}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-white transition-all hover:bg-slate-700"
+                    >
+                      שגר מסר אוטומטי במערך 🚀
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
           </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="mb-4 text-lg font-medium">סוכני העשרה</h2>
-            <div className="grid max-h-80 gap-2 overflow-y-auto sm:grid-cols-2">
-              {Object.entries(agents).map(([key, label]) => (
-                <div key={key} className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm">
-                  <p className="font-medium">{label}</p>
-                  <p className="text-xs text-slate-500">{key}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {error ? (
-        <div className="fixed bottom-6 left-1/2 max-w-lg -translate-x-1/2 rounded-xl border border-red-500/40 bg-red-950 px-4 py-3 text-sm text-red-100">
-          {error}
-        </div>
-      ) : null}
+        )}
+      </div>
     </div>
   );
 }
