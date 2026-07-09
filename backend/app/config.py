@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Election Enrichment Engine"
     debug: bool = False
+    openai_api_key: str | None = None
 
     database_url: str = "postgresql+psycopg://enrichment:enrichment@localhost:5432/enrichment"
     redis_url: str = "redis://localhost:6379/0"

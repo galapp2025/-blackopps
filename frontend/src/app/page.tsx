@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
 import {
@@ -104,8 +105,16 @@ export default function Home() {
             <p className="text-sm uppercase tracking-[0.2em] text-cyan-300">Election Enrichment Engine</p>
             <h1 className="text-2xl font-semibold">מנוע העשרת בוחרים</h1>
           </div>
-          <div className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
-            {Object.keys(agents).length || 24} סוכני העשרה
+          <div className="flex items-center gap-3">
+            <Link
+              href="/roadmap"
+              className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-1.5 text-sm font-medium text-slate-400 transition-colors hover:border-red-900/50 hover:text-red-500"
+            >
+              יכולות מבצעיות (בפיתוח) ⚡
+            </Link>
+            <div className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
+              {Object.keys(agents).length || 24} סוכני העשרה
+            </div>
           </div>
         </div>
       </header>
