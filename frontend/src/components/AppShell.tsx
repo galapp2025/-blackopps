@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, Crosshair, LayoutDashboard } from "lucide-react";
+import { Crosshair, LayoutDashboard } from "lucide-react";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -38,13 +38,13 @@ export function AppShell({ children, active = "dashboard", title, subtitle }: Ap
             </Link>
             <Link
               href="/roadmap"
-              className={`btn-secondary !rounded-full !px-4 !py-2 text-xs ${
-                active === "roadmap" ? "border-red-500/40 bg-red-500/10 text-white" : ""
+              className={`rounded-lg border px-3 py-2 font-mono text-xs text-slate-300 shadow-lg shadow-black/40 transition-all ${
+                active === "roadmap"
+                  ? "border-red-500/50 bg-red-500/10 text-white"
+                  : "border-slate-800 bg-slate-900 hover:border-red-500/50"
               }`}
             >
-              <Activity className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">יכולות מבצעיות</span>
-              <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] text-amber-300">בפיתוח</span>
+              ארסנל יכולות מבצעיות ⚡
             </Link>
           </nav>
         </div>
