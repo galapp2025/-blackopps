@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Election Enrichment Engine",
-  description: "מנוע העשרת בוחרים — FastAPI, Celery, Next.js",
+  title: "BlackOpps | Election Intelligence Platform",
+  description: "מנוע מודיעין פסיכולוגי, העשרת בוחרים והמלצות אופרטיביות בזמן אמת",
 };
 
 export default function RootLayout({
