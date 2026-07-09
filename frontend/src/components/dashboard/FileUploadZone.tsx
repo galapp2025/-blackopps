@@ -5,10 +5,11 @@ import { DragEvent, useRef, useState } from "react";
 
 type FileUploadZoneProps = {
   loading: boolean;
+  progress?: { current: number; total: number } | null;
   onFileSelect: (file: File) => void;
 };
 
-export function FileUploadZone({ loading, onFileSelect }: FileUploadZoneProps) {
+export function FileUploadZone({ loading, progress, onFileSelect }: FileUploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -22,6 +23,9 @@ export function FileUploadZone({ loading, onFileSelect }: FileUploadZoneProps) {
     setDragging(false);
     handleFiles(event.dataTransfer.files);
   };
+
+  const progressPercent =
+    progress && progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl">
@@ -55,6 +59,20 @@ export function FileUploadZone({ loading, onFileSelect }: FileUploadZoneProps) {
           <p className="text-xs text-slate-500">תומך ב־.csv · .txt · .xlsx · .xls</p>
         </div>
 
+        {loading && progress ? (
+          <div className="relative mx-auto mt-8 max-w-md">
+            <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+              <span>מפעיל מנוע AI {progress.current} מתוך {progress.total}</span>
+              <span>{progressPercent}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-red-600 via-red-400 to-cyan-400 transition-all duration-500"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
 
         <input
           ref={inputRef}

@@ -37,11 +37,17 @@ export type VoterRecommendations = {
   avoid: string;
 };
 
+export type VoterOperational = {
+  flashAlert: string;
+  actionableMessage: string;
+};
+
 export type AnalyzedVoter = {
   id: string;
   name: string;
   metrics: Record<string, number>;
   recommendations: VoterRecommendations;
+  operational: VoterOperational;
 };
 
 function metricScore(name: string, metric: string): number {
@@ -52,6 +58,17 @@ function metricScore(name: string, metric: string): number {
     hash |= 0;
   }
   return 60 + (Math.abs(hash) % 41);
+}
+
+export function buildOperationalProfile(name: string, index: number): VoterOperational {
+  const firstName = name.split(" ")[0] ?? name;
+  return {
+    flashAlert:
+      index % 3 === 0
+        ? "התרעת רגישות גבוהה למסרי ביטחון ביממה האחרונה"
+        : "זוהה חלון השפעה קצר לשינוי עמדה סביב נושאים כלכליים",
+    actionableMessage: `שלום ${firstName}, רצינו לעדכן אותך בנושאים שמשפיעים ישירות על הקהילה והמשפחה שלך. נשמח לשוחח כמה דקות ולהציג את התוכנית המעשית שלנו.`,
+  };
 }
 
 export function analyzeVoters(names: string[]): AnalyzedVoter[] {
@@ -70,6 +87,7 @@ export function analyzeVoters(names: string[]): AnalyzedVoter[] {
         trigger: "להדגיש יציבות פיננסית וביטחון קהילתי על בסיס פרופיל 30 הנקודות המלא.",
         avoid: "להימנע לחלוטין ממסרים אידאולוגיים כלליים שלא נוגעים לפרט.",
       },
+      operational: buildOperationalProfile(name, index),
     };
   });
 }
