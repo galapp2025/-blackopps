@@ -67,7 +67,7 @@ export function analyzeVoters(names: string[]): AnalyzedVoter[] {
       metrics,
       recommendations: {
         channel: index % 2 === 0 ? "WhatsApp (הודעה מותאמת)" : "שיחת טלפון אישית מנציג",
-        trigger: "להדגיש יציבות פיננסית וביטחון קהילתי על בסיס פרופיל 30 הנקודות.",
+        trigger: "להדגיש יציבות פיננסית וביטחון קהילתי על בסיס פרופיל 30 הנקודות המלא.",
         avoid: "להימנע לחלוטין ממסרים אידאולוגיים כלליים שלא נוגעים לפרט.",
       },
     };

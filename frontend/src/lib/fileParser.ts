@@ -1,5 +1,5 @@
 const HEADER_MARKERS = ["שם", "name"];
-const JUNK_MARKERS = ["[content", "pk"];
+const JUNK_MARKERS = ["[content", "pk", "xml"];
 export const CHUNK_SIZE = 500;
 export const EXCEL_DEMO_SIZE = 657;
 
@@ -33,7 +33,7 @@ function isBinaryExcel(file: File, text: string): boolean {
 export function generateExcelDemoNames(count = EXCEL_DEMO_SIZE): string[] {
   return Array.from({ length: count }, (_, index) => {
     const baseName = fallbackNamesPool[index % fallbackNamesPool.length];
-    return `${baseName} (${1000 + index})`;
+    return `${baseName} (מזההבוחר-${1042 + index})`;
   });
 }
 

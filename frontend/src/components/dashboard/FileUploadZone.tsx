@@ -5,11 +5,10 @@ import { DragEvent, useRef, useState } from "react";
 
 type FileUploadZoneProps = {
   loading: boolean;
-  progress?: { current: number; total: number } | null;
   onFileSelect: (file: File) => void;
 };
 
-export function FileUploadZone({ loading, progress, onFileSelect }: FileUploadZoneProps) {
+export function FileUploadZone({ loading, onFileSelect }: FileUploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -23,9 +22,6 @@ export function FileUploadZone({ loading, progress, onFileSelect }: FileUploadZo
     setDragging(false);
     handleFiles(event.dataTransfer.files);
   };
-
-  const progressPercent =
-    progress && progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
 
   return (
     <div className="animate-fade-up mx-auto max-w-3xl">
@@ -46,34 +42,19 @@ export function FileUploadZone({ loading, progress, onFileSelect }: FileUploadZo
           {loading ? <Loader2 className="h-8 w-8 animate-spin text-red-400" /> : <UploadCloud className="h-8 w-8 text-red-400" />}
         </div>
 
-        <h2 className="relative text-2xl font-bold tracking-tight text-white">העלאת קובץ בוחרים מבצעי</h2>
+        <h2 className="relative text-2xl font-bold tracking-tight text-white">טעינת קובץ בוחרים / אקסל מבצעי</h2>
         <p className="relative mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-400">
-          גרור קובץ CSV, TXT או Excel לכאן, או בחר ידנית. המערכת תנתח עד אלפי שורות, תחלק ל-batches חכמים,
-          ותמפה כל ישות לפי 30 נקודות מודיעין.
+          העלה קובץ מקור (XLSX, CSV, TXT) להרצת האנליזה ומיפוי 30 נקודות המפתח בזמן אמת.
         </p>
 
         <div className="relative mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <button type="button" className="btn-primary" disabled={loading} onClick={() => inputRef.current?.click()}>
             <FileSpreadsheet className="h-4 w-4" />
-            {loading ? "מריץ אנליזת AI..." : "בחר קובץ להעלאה"}
+            {loading ? "מריץ אנליזת עומק..." : "בחר קובץ להעלאה"}
           </button>
           <p className="text-xs text-slate-500">תומך ב־.csv · .txt · .xlsx · .xls</p>
         </div>
 
-        {loading && progress ? (
-          <div className="relative mx-auto mt-8 max-w-md">
-            <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
-              <span>מעבד שכבת מודיעין {progress.current} מתוך {progress.total}</span>
-              <span>{progressPercent}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-red-600 via-red-400 to-cyan-400 transition-all duration-500"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
-        ) : null}
 
         <input
           ref={inputRef}

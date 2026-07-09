@@ -19,7 +19,7 @@ export function AppShell({ children, active = "dashboard", title, subtitle }: Ap
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-red-400/90">BlackOpps</p>
-              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">
+              <h1 className="text-gradient text-lg font-black tracking-tight sm:text-xl">
                 {title ?? 'חמ"ל ניתוח ואקשן'}
               </h1>
               {subtitle ? <p className="mt-0.5 text-xs text-slate-400 sm:text-sm">{subtitle}</p> : null}

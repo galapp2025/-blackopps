@@ -20,7 +20,7 @@ export function ActionPanel({ voter, onDispatch }: ActionPanelProps) {
           <div className="rounded-2xl border border-white/5 bg-slate-950/60 p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
               <MessageSquare className="h-3.5 w-3.5" />
-              ערוץ אופטימלי
+              ערוץ תקשורת מועדף
             </div>
             <p className="text-sm font-semibold leading-relaxed text-white">{voter.recommendations.channel}</p>
           </div>
@@ -28,7 +28,7 @@ export function ActionPanel({ voter, onDispatch }: ActionPanelProps) {
           <div className="rounded-2xl border border-white/5 bg-slate-950/60 p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
               <Target className="h-3.5 w-3.5" />
-              טריגר מניע
+              טריגר פסיכולוגי מניע לפעולה
             </div>
             <p className="text-sm leading-relaxed text-slate-200">{voter.recommendations.trigger}</p>
           </div>
@@ -36,7 +36,7 @@ export function ActionPanel({ voter, onDispatch }: ActionPanelProps) {
           <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-red-300">
               <AlertTriangle className="h-3.5 w-3.5" />
-              קווים אדומים
+              קווים אדומים (ממה להימנע)
             </div>
             <p className="text-sm leading-relaxed text-red-100/90">{voter.recommendations.avoid}</p>
           </div>
