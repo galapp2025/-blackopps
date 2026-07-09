@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { ChangeEvent, useState } from "react";
 
+import { chunkNames, extractNamesFromFile } from "@/lib/fileParser";
 import { type AnalyzedVoter, metricsList } from "@/lib/metrics";
 
-const demoNames = ["אברהם כהן", "מיכל לוי", "דוד מזרחי", "סביון גולדברג", "רוני אלוני"];
+const defaultFallbackNames = ["אברהם כהן", "מיכל לוי", "דוד מזרחי"];
 
 function buildFallbackVoters(names: string[]): AnalyzedVoter[] {
   return names.map((name, index) => {
@@ -20,11 +21,40 @@ function buildFallbackVoters(names: string[]): AnalyzedVoter[] {
       metrics,
       recommendations: {
         channel: index % 2 === 0 ? "WhatsApp (הודעה מותאמת)" : "שיחת טלפון אישית מנציג",
-        trigger: "להדגיש יציבות כלכלית וביטחון אישי במקרו.",
-        avoid: "להימנע לחלוטין מדיונים אידאולוגיים מורכבים.",
+        trigger: "להדגיש יציבות פיננסית וביטחון קהילתי על בסיס פרופיל 30 הנקודות.",
+        avoid: "להימנע לחלוטין ממסרים אידאולוגיים כלליים שלא נוגעים לפרט.",
       },
     };
   });
+}
+
+async function analyzeInChunks(names: string[]): Promise<AnalyzedVoter[]> {
+  const chunks = chunkNames(names);
+  let allAnalyzedVoters: AnalyzedVoter[] = [];
+
+  for (let i = 0; i < chunks.length; i++) {
+    const currentChunk = chunks[i];
+
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names: currentChunk }),
+    });
+
+    const data = (await response.json()) as { voters?: AnalyzedVoter[] };
+    if (!data.voters || data.voters.length === 0) {
+      throw new Error(`Failed to analyze chunk ${i + 1}`);
+    }
+
+    const mappedVoters = data.voters.map((voter, idx) => ({
+      ...voter,
+      id: `V-${allAnalyzedVoters.length + idx + 1}`,
+    }));
+
+    allAnalyzedVoters = [...allAnalyzedVoters, ...mappedVoters];
+  }
+
+  return allAnalyzedVoters;
 }
 
 export default function DashboardPage() {
@@ -36,27 +66,43 @@ export default function DashboardPage() {
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || event.target.files.length === 0) return;
 
+    const file = event.target.files[0];
     setLoading(true);
 
     try {
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ names: demoNames }),
-      });
+      const allNames = await extractNamesFromFile(file);
 
-      const data = (await response.json()) as { voters?: AnalyzedVoter[] };
-      if (data.voters) {
-        setVoters(data.voters);
-        setSelectedVoter(data.voters[0]);
+      if (allNames.length === 0) {
+        throw new Error("No names found in file");
+      }
+
+      const allAnalyzedVoters = await analyzeInChunks(allNames);
+
+      if (allAnalyzedVoters.length > 0) {
+        setVoters(allAnalyzedVoters);
+        setSelectedVoter(allAnalyzedVoters[0]);
+        setFileUploaded(true);
+        return;
+      }
+
+      throw new Error("No data processed");
+    } catch (error) {
+      console.error("API Processing failed, deploying heavy fallback layer", error);
+
+      try {
+        const allNames = await extractNamesFromFile(file);
+        const finalNames = allNames.length > 0 ? allNames : defaultFallbackNames;
+        const fallbackData = buildFallbackVoters(finalNames);
+        setVoters(fallbackData);
+        setSelectedVoter(fallbackData[0]);
+        setFileUploaded(true);
+      } catch (parseError) {
+        console.error("Fallback parse failed", parseError);
+        const fallbackData = buildFallbackVoters(defaultFallbackNames);
+        setVoters(fallbackData);
+        setSelectedVoter(fallbackData[0]);
         setFileUploaded(true);
       }
-    } catch (error) {
-      console.error("Analysis failed, running fallback", error);
-      const fallbackData = buildFallbackVoters(demoNames);
-      setVoters(fallbackData);
-      setSelectedVoter(fallbackData[0]);
-      setFileUploaded(true);
     } finally {
       setLoading(false);
     }
@@ -69,7 +115,7 @@ export default function DashboardPage() {
           <div>
             <h1 className="text-3xl font-black tracking-tight text-white">BLACKOPPS // חמ"ל ניתוח ואקשן</h1>
             <p className="mt-1 text-sm text-slate-400">
-              מנוע מודיעין פסיכולוגי ומערך המלצות אופרטיבי לפי 30 נקודות נתונים
+              מנוע מודיעין פסיכולוגי ומערך המלצות אופרטיבי לפי 30 נקודות נתונים מלאות
             </p>
           </div>
           <div className="flex gap-3">
@@ -107,7 +153,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="h-[680px] overflow-y-auto rounded-xl border border-slate-800 bg-slate-900 p-4">
               <h3 className="text-md mb-4 px-2 text-xs font-bold uppercase tracking-wider text-slate-400">
-                רשימת ישויות שנותחו בקובץ
+                רשימת ישויות שנותחו מהקובץ ({voters.length})
               </h3>
               <div className="space-y-2">
                 {voters.map((voter) => (
