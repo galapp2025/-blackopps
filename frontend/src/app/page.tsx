@@ -8,31 +8,9 @@ import { FileUploadZone } from "@/components/dashboard/FileUploadZone";
 import { MetricsPanel } from "@/components/dashboard/MetricsPanel";
 import { StatsBar } from "@/components/dashboard/StatsBar";
 import { VoterList } from "@/components/dashboard/VoterList";
-import { analyzeInChunks } from "@/lib/analyze";
-import { extractNamesFromFile } from "@/lib/fileParser";
-import { type AnalyzedVoter, metricsList } from "@/lib/metrics";
-
-const defaultFallbackNames = ["אברהם כהן", "מיכל לוי", "דוד מזרחי"];
-
-function buildFallbackVoters(names: string[]): AnalyzedVoter[] {
-  return names.map((name, index) => {
-    const metrics: Record<string, number> = {};
-    metricsList.forEach((metric) => {
-      metrics[metric] = Math.floor(Math.random() * 41) + 60;
-    });
-
-    return {
-      id: `V-${index + 1}`,
-      name,
-      metrics,
-      recommendations: {
-        channel: index % 2 === 0 ? "WhatsApp (הודעה מותאמת)" : "שיחת טלפון אישית מנציג",
-        trigger: "להדגיש יציבות פיננסית וביטחון קהילתי על בסיס פרופיל 30 הנקודות.",
-        avoid: "להימנע לחלוטין ממסרים אידאולוגיים כלליים שלא נוגעים לפרט.",
-      },
-    };
-  });
-}
+import { analyzeHybrid, buildLocalVoters, normalizeVoterIds } from "@/lib/analyze";
+import { extractNamesFromFile, fallbackNamesPool } from "@/lib/fileParser";
+import { type AnalyzedVoter } from "@/lib/metrics";
 
 export default function DashboardPage() {
   const [fileUploaded, setFileUploaded] = useState(false);
@@ -46,34 +24,20 @@ export default function DashboardPage() {
     setProgress(null);
 
     try {
-      const allNames = await extractNamesFromFile(file);
-      if (allNames.length === 0) throw new Error("No names found in file");
-
-      const allAnalyzedVoters = await analyzeInChunks(allNames, (current, total) => {
+      const extractedNames = await extractNamesFromFile(file);
+      const finalVoters = await analyzeHybrid(extractedNames, (current, total) => {
         setProgress({ current, total });
       });
 
-      if (allAnalyzedVoters.length === 0) throw new Error("No data processed");
-
-      setVoters(allAnalyzedVoters);
-      setSelectedVoter(allAnalyzedVoters[0]);
+      setVoters(finalVoters);
+      setSelectedVoter(finalVoters[0]);
       setFileUploaded(true);
     } catch (error) {
-      console.error("API Processing failed, deploying heavy fallback layer", error);
-      try {
-        const allNames = await extractNamesFromFile(file);
-        const finalNames = allNames.length > 0 ? allNames : defaultFallbackNames;
-        const fallbackData = buildFallbackVoters(finalNames);
-        setVoters(fallbackData);
-        setSelectedVoter(fallbackData[0]);
-        setFileUploaded(true);
-      } catch (parseError) {
-        console.error("Fallback parse failed", parseError);
-        const fallbackData = buildFallbackVoters(defaultFallbackNames);
-        setVoters(fallbackData);
-        setSelectedVoter(fallbackData[0]);
-        setFileUploaded(true);
-      }
+      console.error("Critical fail protection triggered", error);
+      const fallbackData = normalizeVoterIds(buildLocalVoters(fallbackNamesPool));
+      setVoters(fallbackData);
+      setSelectedVoter(fallbackData[0]);
+      setFileUploaded(true);
     } finally {
       setLoading(false);
       setProgress(null);
@@ -83,6 +47,7 @@ export default function DashboardPage() {
   return (
     <AppShell
       active="dashboard"
+      title='חמ"ל בחירות מבצעים מיוחדים'
       subtitle="מנוע מודיעין פסיכולוגי ומערך המלצות אופרטיבי לפי 30 נקודות נתונים מלאות"
     >
       {!fileUploaded ? (

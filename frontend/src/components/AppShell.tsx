@@ -4,10 +4,11 @@ import { Activity, Crosshair, LayoutDashboard } from "lucide-react";
 type AppShellProps = {
   children: React.ReactNode;
   active?: "dashboard" | "roadmap";
+  title?: string;
   subtitle?: string;
 };
 
-export function AppShell({ children, active = "dashboard", subtitle }: AppShellProps) {
+export function AppShell({ children, active = "dashboard", title, subtitle }: AppShellProps) {
   return (
     <div className="mesh-bg min-h-screen text-slate-100">
       <header className="sticky top-0 z-50 border-b border-white/5 bg-slate-950/70 backdrop-blur-xl">
@@ -18,7 +19,9 @@ export function AppShell({ children, active = "dashboard", subtitle }: AppShellP
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-red-400/90">BlackOpps</p>
-              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">חמ&quot;ל ניתוח ואקשן</h1>
+              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">
+                {title ?? 'חמ"ל ניתוח ואקשן'}
+              </h1>
               {subtitle ? <p className="mt-0.5 text-xs text-slate-400 sm:text-sm">{subtitle}</p> : null}
             </div>
           </div>

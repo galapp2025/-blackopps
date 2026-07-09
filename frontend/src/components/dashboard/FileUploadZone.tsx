@@ -48,8 +48,8 @@ export function FileUploadZone({ loading, progress, onFileSelect }: FileUploadZo
 
         <h2 className="relative text-2xl font-bold tracking-tight text-white">העלאת קובץ בוחרים מבצעי</h2>
         <p className="relative mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-400">
-          גרור קובץ CSV או Excel לכאן, או בחר ידנית. המערכת תנתח עד אלפי שורות, תחלק ל-batches של 500, ותמפה
-          כל ישות לפי 30 נקודות מודיעין.
+          גרור קובץ CSV, TXT או Excel לכאן, או בחר ידנית. המערכת תנתח עד אלפי שורות, תחלק ל-batches חכמים,
+          ותמפה כל ישות לפי 30 נקודות מודיעין.
         </p>
 
         <div className="relative mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -57,13 +57,13 @@ export function FileUploadZone({ loading, progress, onFileSelect }: FileUploadZo
             <FileSpreadsheet className="h-4 w-4" />
             {loading ? "מריץ אנליזת AI..." : "בחר קובץ להעלאה"}
           </button>
-          <p className="text-xs text-slate-500">תומך ב־.csv · .xlsx · .xls</p>
+          <p className="text-xs text-slate-500">תומך ב־.csv · .txt · .xlsx · .xls</p>
         </div>
 
         {loading && progress ? (
           <div className="relative mx-auto mt-8 max-w-md">
             <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
-              <span>מעבד batch {progress.current} מתוך {progress.total}</span>
+              <span>מעבד שכבת מודיעין {progress.current} מתוך {progress.total}</span>
               <span>{progressPercent}%</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-800">
@@ -78,7 +78,7 @@ export function FileUploadZone({ loading, progress, onFileSelect }: FileUploadZo
         <input
           ref={inputRef}
           type="file"
-          accept=".xlsx,.xls,.csv"
+          accept=".xlsx,.xls,.csv,.txt"
           className="hidden"
           disabled={loading}
           onChange={(event) => handleFiles(event.target.files)}
