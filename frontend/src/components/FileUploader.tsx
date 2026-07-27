@@ -43,10 +43,13 @@ export function FileUploader({ loading, statusText, error, onFile, onRetry }: Fi
       </div>
       <p className="text-sm font-semibold text-white">ייבוא מצביעים</p>
       <p className="mt-1 text-xs text-slate-500">xlsx · xls · csv · txt</p>
-      <button type="button" className="btn-primary mt-4" disabled={loading} onClick={() => inputRef.current?.click()}>
+      <button type="button" className="btn-primary mt-4" disabled={loading} onClick={() => inputRef.current?.click()} aria-label="העלה קובץ מצביעים" aria-describedby="upload-help">
         <FileSpreadsheet className="h-4 w-4" />
         {loading ? "טוען…" : "בחר קובץ"}
       </button>
+      <span id="upload-help" className="sr-only">
+        פורמטים נתמכים: Excel, CSV, TXT. גודל מקסימלי: 10MB.
+      </span>
       {statusText ? <p className="mt-3 text-sm text-cyan-200">{statusText}</p> : null}
       {error ? (
         <div className="mt-3 text-sm text-red-300" role="alert">

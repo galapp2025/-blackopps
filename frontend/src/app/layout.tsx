@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
-import { Heebo } from "next/font/google";
+import { Geist_Mono, Heebo } from "next/font/google";
 
 import { ApiKeyGate } from "@/components/ApiKeyGate";
+import { ToastProvider } from "@/components/Toast";
 
 import "./globals.css";
 
@@ -29,13 +29,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="he"
-      dir="rtl"
-      className={`${heebo.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="he" dir="rtl" className={`${heebo.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
-        <ApiKeyGate>{children}</ApiKeyGate>
+        <ToastProvider>
+          <ApiKeyGate>{children}</ApiKeyGate>
+        </ToastProvider>
       </body>
     </html>
   );

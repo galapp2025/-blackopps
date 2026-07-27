@@ -1,10 +1,14 @@
 "use client";
 
-import { Download, Loader2, RefreshCw, Send } from "lucide-react";
+import { Download, Loader2, RefreshCw, Send, Target } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { ChannelBar } from "@/components/ChannelBar";
+import { Copyable } from "@/components/Copyable";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { GOTVCategoryCard } from "@/components/GOTVCategoryCard";
-import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { Skeleton } from "@/components/Skeleton";
 import type { GOTVBattlePlan, GOTVPrediction } from "@/lib/types";
 
 type GOTVPanelProps = {
@@ -13,6 +17,7 @@ type GOTVPanelProps = {
   error?: string | null;
   onRefresh: () => void;
   onDispatch: (voter: GOTVPrediction) => void;
+  onImportHint?: () => void;
 };
 
 function downloadBlob(filename: string, content: string, type: string) {
@@ -25,7 +30,9 @@ function downloadBlob(filename: string, content: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-export function GOTVPanel({ plan, loading, error, onRefresh, onDispatch }: GOTVPanelProps) {
+const CHANNEL_COLORS = ["var(--accent-cyan)", "var(--accent-red)", "var(--accent-amber)", "var(--accent-emerald)", "var(--accent-blue)"];
+
+export function GOTVPanel({ plan, loading, error, onRefresh, onDispatch, onImportHint }: GOTVPanelProps) {
   const [sortAsc, setSortAsc] = useState(false);
 
   const categories = plan?.categories || {};
@@ -41,32 +48,41 @@ export function GOTVPanel({ plan, loading, error, onRefresh, onDispatch }: GOTVP
   }, [plan, sortAsc]);
 
   const channels = plan?.battle_plan.channels || {};
-  const channelMax = Math.max(1, ...Object.values(channels).map(Number));
+  const channelTotal = Math.max(1, Object.values(channels).reduce((s, v) => s + Number(v || 0), 0));
 
-  if (loading && !plan) return <LoadingSkeleton rows={4} />;
+  if (loading && !plan) {
+    return (
+      <div className="card-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Skeleton variant="stat" />
+        <Skeleton variant="stat" />
+        <Skeleton variant="stat" />
+        <Skeleton variant="stat" />
+      </div>
+    );
+  }
 
   if (!plan) {
     return (
-      <div className="glass-panel rounded-3xl p-10 text-center">
-        <p className="text-sm text-slate-400">ייבא מצביעים כדי לראות תמונת GOTV</p>
-        <button type="button" className="btn-primary mt-4" onClick={onRefresh}>
-          רענן GOTV
-        </button>
-      </div>
+      <EmptyState
+        icon={<Target className="mx-auto h-10 w-10" />}
+        title="אין נתוני GOTV עדיין"
+        description="ייבא מצביעים כדי לראות תמונת GOTV מלאה — SAFE / LEANING / SWING / AT_RISK"
+        action={{ label: onImportHint ? "עבור לייבוא" : "רענן GOTV", onClick: onImportHint || onRefresh }}
+      />
     );
   }
 
   const cat = (key: string) => Number(categories[key] ?? categories[key.toUpperCase()] ?? 0);
 
   return (
-    <div className="space-y-6">
+    <div className="content-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-white">Battle Plan</h2>
-          <p className="text-xs text-slate-500">{total} מצביעים סווגו</p>
+          <h2 className="stat-title text-white">Battle Plan</h2>
+          <p className="text-xs text-slate-500">{total.toLocaleString("he-IL")} מצביעים סווגו</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-secondary text-xs" disabled={loading} onClick={onRefresh}>
+          <button type="button" className="btn-secondary text-xs" disabled={loading} onClick={onRefresh} aria-label="רענן נתוני GOTV">
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             רענן GOTV
           </button>
@@ -97,16 +113,9 @@ export function GOTVPanel({ plan, loading, error, onRefresh, onDispatch }: GOTVP
         </div>
       </div>
 
-      {error ? (
-        <div className="rounded-2xl border border-red-500/30 bg-red-950/40 px-4 py-3 text-sm text-red-100" role="alert">
-          {error}
-          <button type="button" className="btn-ghost ms-3 text-red-200" onClick={onRefresh}>
-            נסה שוב
-          </button>
-        </div>
-      ) : null}
+      {error ? <ErrorState message={error} onRetry={onRefresh} /> : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="card-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <GOTVCategoryCard category="safe" count={cat("safe")} total={total} tone="safe" />
         <GOTVCategoryCard category="leaning" count={cat("leaning")} total={total} tone="leaning" />
         <GOTVCategoryCard category="swing" count={cat("swing")} total={total} tone="swing" />
@@ -116,28 +125,15 @@ export function GOTVPanel({ plan, loading, error, onRefresh, onDispatch }: GOTVP
       <div className="glass-panel rounded-3xl p-5">
         <h3 className="mb-4 text-sm font-semibold text-slate-200">פילוח ערוצים</h3>
         <div className="space-y-3">
-          {Object.entries(channels).map(([name, value]) => {
-            const n = Number(value) || 0;
-            const pct = Math.round((n / channelMax) * 100);
-            return (
-              <div key={name}>
-                <div className="mb-1 flex justify-between text-xs text-slate-400">
-                  <span>{name}</span>
-                  <span className="font-mono tabular-nums">{n}</span>
-                </div>
-                <svg viewBox="0 0 100 6" className="h-2 w-full overflow-visible" aria-hidden>
-                  <rect x="0" y="0" width="100" height="6" rx="3" fill="rgba(30,41,59,0.9)" />
-                  <rect x="0" y="0" width={pct} height="6" rx="3" fill="url(#chGrad)" />
-                  <defs>
-                    <linearGradient id="chGrad" x1="0" x2="1">
-                      <stop offset="0%" stopColor="#22d3ee" />
-                      <stop offset="100%" stopColor="#ef4444" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-            );
-          })}
+          {Object.entries(channels).map(([name, value], i) => (
+            <ChannelBar
+              key={name}
+              label={name}
+              count={Number(value) || 0}
+              total={channelTotal}
+              color={CHANNEL_COLORS[i % CHANNEL_COLORS.length]}
+            />
+          ))}
         </div>
       </div>
 
@@ -169,8 +165,10 @@ export function GOTVPanel({ plan, loading, error, onRefresh, onDispatch }: GOTVP
                 </tr>
               ) : (
                 swingRows.map((row) => (
-                  <tr key={`${row.name}-${row.priority_score}`} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
-                    <td className="px-4 py-3 font-medium text-white">{row.name}</td>
+                  <tr key={`${row.name}-${row.priority_score}`} className="border-t border-white/[0.04] transition-colors hover:bg-white/[0.02]">
+                    <td className="px-4 py-3 font-medium text-white">
+                      <Copyable text={row.name} />
+                    </td>
                     <td className="px-4 py-3 font-mono tabular-nums text-cyan-300">{row.priority_score}</td>
                     <td className="px-4 py-3 text-slate-300">{row.optimal_channel}</td>
                     <td className="px-4 py-3 text-slate-400">{row.contact_frequency}</td>

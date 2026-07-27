@@ -33,7 +33,7 @@ export function ComparisonRadar({ aName, bName, aDims, bDims }: ComparisonRadarP
     <div className="glass-panel rounded-3xl p-5">
       <h3 className="mb-3 text-sm font-semibold text-white">מפת ממדים</h3>
       <div className="mx-auto max-w-sm">
-        <svg viewBox="0 0 200 200" className="h-auto w-full" role="img" aria-label="השוואת ממדים">
+        <svg viewBox="0 0 200 200" className="h-auto w-full" role="img" aria-label="השוואת ממדים רדאר">
           {[0.25, 0.5, 0.75, 1].map((t) => (
             <polygon
               key={t}
@@ -54,8 +54,21 @@ export function ComparisonRadar({ aName, bName, aDims, bDims }: ComparisonRadarP
               </g>
             );
           })}
-          <polygon points={polygon(cx, cy, r, aDims)} fill="rgba(239,68,68,0.25)" stroke="#ef4444" strokeWidth="1.5" />
-          <polygon points={polygon(cx, cy, r, bDims)} fill="rgba(34,211,238,0.2)" stroke="#22d3ee" strokeWidth="1.5" />
+          <polygon
+            className="radar-draw"
+            points={polygon(cx, cy, r, aDims)}
+            fill="rgba(239,68,68,0.25)"
+            stroke="#ef4444"
+            strokeWidth="1.5"
+          />
+          <polygon
+            className="radar-draw"
+            style={{ animationDelay: "120ms" }}
+            points={polygon(cx, cy, r, bDims)}
+            fill="rgba(34,211,238,0.2)"
+            stroke="#22d3ee"
+            strokeWidth="1.5"
+          />
         </svg>
       </div>
       <div className="mt-2 flex justify-center gap-4 text-xs">

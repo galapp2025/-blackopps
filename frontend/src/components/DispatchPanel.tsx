@@ -3,12 +3,15 @@
 import { Loader2, Send } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { ApiError, api } from "@/lib/api";
 import type { DispatchStats, GOTVPrediction, Voter } from "@/lib/types";
 
 type DispatchPanelProps = {
   prefill?: GOTVPrediction | null;
-  onToast: (message: string, tone?: "ok" | "err") => void;
+  onToast: (message: string, tone?: "ok" | "err" | "warning" | "info") => void;
 };
 
 const CHANNELS = [
@@ -135,20 +138,24 @@ export function DispatchPanel({ prefill, onToast }: DispatchPanelProps) {
             <p className="text-[11px] text-slate-500">עודכן {updatedAt.toLocaleTimeString("he-IL")}</p>
           ) : null}
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="card-stagger grid grid-cols-2 gap-3">
           {cards.map((c) => (
             <div key={c.label} className="glass-panel rounded-2xl p-4">
-              <p className="text-xs text-slate-500">{c.label}</p>
-              <p className={`mt-1 font-mono text-3xl font-extrabold tabular-nums ${c.tone}`}>{c.value}</p>
+              <p className="stat-caption text-slate-500">{c.label}</p>
+              <AnimatedCounter value={c.value} className={`mt-1 font-mono text-3xl font-extrabold tabular-nums ${c.tone}`} duration={700} />
             </div>
           ))}
         </div>
         {!stats || (stats.queued === 0 && stats.in_progress === 0) ? (
-          <p className="text-sm text-slate-500">אין משימות פעילות כרגע</p>
+          <EmptyState
+            icon={<Send className="mx-auto h-8 w-8" />}
+            title="אין משימות פעילות"
+            description="צור שיגור ראשון לבוחר — טלפון, וואטסאפ, SMS או דלת"
+          />
         ) : null}
       </section>
 
-      <section className="glass-panel rounded-3xl p-5 sm:p-6">
+      <section className="glass-panel rounded-3xl p-5 sm:p-6" aria-label="טופס שיגור">
         <h2 className="mb-4 text-lg font-bold text-white">משימה חדשה</h2>
         <div className="space-y-3">
           <div>
@@ -213,11 +220,7 @@ export function DispatchPanel({ prefill, onToast }: DispatchPanelProps) {
               ))}
             </select>
           </div>
-          {error ? (
-            <p className="text-sm text-red-300" role="alert">
-              {error}
-            </p>
-          ) : null}
+          {error ? <ErrorState message={error} onRetry={() => void submit()} /> : null}
           <button type="button" className="btn-primary w-full" disabled={submitting || !voterName.trim()} onClick={() => void submit()}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {submitting ? "טוען…" : "שלח למשימה"}

@@ -28,7 +28,7 @@ export function AppShell({ children, active, title, subtitle }: AppShellProps) {
 
   return (
     <div className="mesh-bg flex min-h-screen flex-col text-slate-100">
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-2xl backdrop-saturate-150">
+      <header role="banner" aria-label="כותרת האפליקציה" className="sticky top-0 z-50 border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-2xl backdrop-saturate-150">
         <div className="mx-auto max-w-[90rem] px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center justify-between gap-4">
@@ -56,7 +56,7 @@ export function AppShell({ children, active, title, subtitle }: AppShellProps) {
                 >
                   <KeyRound className="h-4 w-4" />
                 </button>
-                <nav className="flex items-center gap-1 rounded-2xl border border-white/[0.06] bg-slate-900/50 p-1" aria-label="ניווט ראשי">
+                <nav role="navigation" className="flex items-center gap-1 rounded-2xl border border-white/[0.06] bg-slate-900/50 p-1" aria-label="ניווט ראשי">
                   {navItems.map(({ href, id, label, icon: Icon }) => (
                     <Link
                       key={id}
@@ -76,6 +76,7 @@ export function AppShell({ children, active, title, subtitle }: AppShellProps) {
 
             <div className="hidden items-center gap-2 lg:flex">
               <nav
+                role="navigation"
                 className="flex items-center gap-1 rounded-2xl border border-white/[0.06] bg-slate-900/40 p-1"
                 aria-label="ניווט ראשי"
               >
@@ -113,9 +114,11 @@ export function AppShell({ children, active, title, subtitle }: AppShellProps) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[90rem] flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+      <main role="main" aria-label="תוכן ראשי" className="mx-auto w-full max-w-[90rem] flex-1 px-4 py-6 sm:px-6 sm:py-8">
+        {children}
+      </main>
 
-      <footer className="border-t border-white/[0.04] py-4 text-center text-[11px] text-slate-600">
+      <footer role="contentinfo" className="border-t border-white/[0.04] py-4 text-center text-[11px] text-slate-600">
         BlackOpps · Election Intelligence · OSINT Pipeline
       </footer>
     </div>

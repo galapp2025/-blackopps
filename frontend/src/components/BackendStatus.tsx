@@ -55,7 +55,7 @@ export function BackendStatus({ compact = false }: BackendStatusProps) {
   if (compact) {
     return (
       <div className="flex items-center gap-2 text-[11px] text-slate-400">
-        <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden />
+        <span className={`h-2 w-2 rounded-full live-indicator ${dot}`} aria-hidden />
         <span>{label}</span>
         <span className="hidden font-mono text-slate-600 md:inline">{API_BASE.replace(/^https?:\/\//, "")}</span>
       </div>

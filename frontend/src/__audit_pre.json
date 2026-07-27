@@ -1,0 +1,128 @@
+{
+  "timestamp": "2026-07-27T17:34:25.544Z",
+  "checks": [
+    {
+      "id": "css-transitions-animations",
+      "name": "CSS Transitions & Animations",
+      "pass": true,
+      "weight": 5
+    },
+    {
+      "id": "micro-interactions-hover-focus-active-",
+      "name": "Micro-interactions (hover/focus/active)",
+      "pass": true,
+      "weight": 5
+    },
+    {
+      "id": "glass-morphism-effects",
+      "name": "Glass Morphism Effects",
+      "pass": true,
+      "weight": 3
+    },
+    {
+      "id": "aria-attributes",
+      "name": "ARIA Attributes",
+      "pass": true,
+      "weight": 5
+    },
+    {
+      "id": "semantic-roles",
+      "name": "Semantic Roles",
+      "pass": true,
+      "weight": 5
+    },
+    {
+      "id": "keyboard-navigation",
+      "name": "Keyboard Navigation",
+      "pass": false,
+      "weight": 5
+    },
+    {
+      "id": "loading-skeletons",
+      "name": "Loading Skeletons",
+      "pass": true,
+      "weight": 5
+    },
+    {
+      "id": "toast-notification-system",
+      "name": "Toast Notification System",
+      "pass": true,
+      "weight": 5
+    },
+    {
+      "id": "empty-state-components",
+      "name": "Empty State Components",
+      "pass": false,
+      "weight": 4
+    },
+    {
+      "id": "error-state-components",
+      "name": "Error State Components",
+      "pass": false,
+      "weight": 4
+    },
+    {
+      "id": "data-visualizations",
+      "name": "Data Visualizations",
+      "pass": true,
+      "weight": 5
+    },
+    {
+      "id": "responsive-breakpoints",
+      "name": "Responsive Breakpoints",
+      "pass": true,
+      "weight": 5
+    },
+    {
+      "id": "dark-theme-completeness",
+      "name": "Dark Theme Completeness",
+      "pass": true,
+      "weight": 3
+    },
+    {
+      "id": "typography-scale",
+      "name": "Typography Scale",
+      "pass": true,
+      "weight": 3
+    },
+    {
+      "id": "rtl-support",
+      "name": "RTL Support",
+      "pass": true,
+      "weight": 5
+    },
+    {
+      "id": "css-content-visibility-perf-",
+      "name": "CSS Content-Visibility (perf)",
+      "pass": false,
+      "weight": 3
+    },
+    {
+      "id": "visible-focus-indicators",
+      "name": "Visible Focus Indicators",
+      "pass": true,
+      "weight": 4
+    },
+    {
+      "id": "reduced-motion-support",
+      "name": "Reduced Motion Support",
+      "pass": true,
+      "weight": 4
+    },
+    {
+      "id": "smooth-scrolling",
+      "name": "Smooth Scrolling",
+      "pass": true,
+      "weight": 2
+    },
+    {
+      "id": "custom-selection-styling",
+      "name": "Custom Selection Styling",
+      "pass": true,
+      "weight": 2
+    }
+  ],
+  "score": 66,
+  "maxScore": 82,
+  "grade": "B"
+}

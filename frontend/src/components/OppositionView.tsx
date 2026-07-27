@@ -4,8 +4,10 @@ import { Check, ChevronDown, Loader2, Swords, X } from "lucide-react";
 import { useState } from "react";
 
 import { ComparisonRadar } from "@/components/ComparisonRadar";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { InfluenceScoreBar } from "@/components/InfluenceScoreBar";
-import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { Skeleton } from "@/components/Skeleton";
 import type { ComparisonResult } from "@/lib/types";
 
 type OppositionViewProps = {
@@ -121,17 +123,27 @@ export function OppositionView({ result, loading, error, onCompare }: Opposition
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-4 w-4" />}
           {loading ? "טוען…" : "השווה מועמדים"}
         </button>
-        {error ? (
-          <p className="mt-3 text-sm text-red-300" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <div className="mt-3"><ErrorState message={error} onRetry={() => onCompare(a.trim(), b.trim())} /></div> : null}
       </div>
 
-      {loading && !result ? <LoadingSkeleton rows={3} /> : null}
+      {loading && !result ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+        </div>
+      ) : null}
 
-      {!loading && !result ? (
-        <div className="glass-panel rounded-3xl p-10 text-center text-sm text-slate-400">הזן שמות של שני מועמדים להשוואה</div>
+      {!loading && !result && !error ? (
+        <EmptyState
+          icon={<Swords className="mx-auto h-10 w-10" />}
+          title="אין השוואה עדיין"
+          description="הזן שמות של שני מועמדים להשוואה מודיעינית מלאה"
+          action={
+            a.trim() && b.trim()
+              ? { label: "השווה עכשיו", onClick: () => onCompare(a.trim(), b.trim()) }
+              : undefined
+          }
+        />
       ) : null}
 
       {result ? (
