@@ -26,6 +26,13 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
 )
+if settings.intelligence_sync_fallback:
+    celery_app.conf.update(
+        task_always_eager=True,
+        task_store_eager_result=True,
+        broker_url="memory://",
+        result_backend="cache+memory://",
+    )
 
 
 ENRICHMENT_AGENTS: dict[str, str] = {
@@ -400,3 +407,39 @@ def ensure_enrichment_rows(db: Session, voter_id: int, agent_keys: list[str] | N
         if key not in existing:
             db.add(Enrichment(voter_id=voter_id, agent_key=key, status=EnrichmentStatus.PENDING.value))
     db.commit()
+
+
+@celery_app.task(name="intelligence.analyze_batch")
+def celery_analyze_batch(names: list[str]) -> list[dict[str, Any]]:
+    """Runs BlackOpps intelligence profiling inside a Celery worker."""
+    from app.intelligence.analyzer import analyze_names_batch
+
+    return analyze_names_batch(names)
+
+
+@celery_app.task(name="dispatch.enqueue_message")
+def celery_enqueue_dispatch(
+    message_id: str,
+    channel: str,
+    message: str,
+    voter_id: str | None,
+    voter_name: str | None,
+    queued_at: str,
+) -> dict[str, Any]:
+    """Persist dispatch job to Redis outbox (consumed by outbound workers)."""
+    from app.dispatch_queue import enqueue_dispatch_record
+
+    record = {
+        "message_id": message_id,
+        "channel": channel,
+        "message": message,
+        "voter_id": voter_id or "",
+        "voter_name": voter_name or "",
+        "queued_at": queued_at,
+        "status": "queued",
+    }
+    try:
+        enqueue_dispatch_record(record)
+    except Exception:  # noqa: BLE001
+        pass
+    return record

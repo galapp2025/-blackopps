@@ -1,8 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -28,9 +27,17 @@ class Voter(Base):
     gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    raw_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    raw_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     turnout_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     support_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    turnout_history: Mapped[float | None] = mapped_column(Float, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    gotv_category: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+    gotv_priority: Mapped[float | None] = mapped_column(Float, nullable=True)
+    gotv_channel: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    gotv_frequency: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    gotv_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    enriched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -48,7 +55,7 @@ class Enrichment(Base):
     agent_key: Mapped[str] = mapped_column(String(64), index=True)
     status: Mapped[str] = mapped_column(String(20), default=EnrichmentStatus.PENDING.value)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
-    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
