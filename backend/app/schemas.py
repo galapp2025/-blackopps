@@ -88,11 +88,18 @@ class VoterListItem(BaseModel):
     national_id: str
     first_name: str
     last_name: str
-    city: str | None
-    turnout_score: float | None
-    support_score: float | None
+    city: str | None = None
+    neighborhood: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    turnout_score: float | None = None
+    support_score: float | None = None
+    turnout_history: float | None = None
     gotv_category: str | None = None
     gotv_priority: float | None = None
+    gotv_channel: str | None = None
+    gotv_frequency: str | None = None
+    gotv_message: str | None = None
 
 
 class VoterListResponse(BaseModel):

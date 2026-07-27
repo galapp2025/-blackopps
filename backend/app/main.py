@@ -221,8 +221,12 @@ async def list_voters(
 
 
 @app.get("/voters/{voter_id}", response_model=VoterRead)
-async def get_voter(voter_id: int, db: Session = Depends(get_db)) -> Voter:
-    voter = db.get(Voter, voter_id)
+async def get_voter(voter_id: str, db: Session = Depends(get_db)) -> Voter:
+    try:
+        vid = int(voter_id)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail="Voter not found") from exc
+    voter = db.get(Voter, vid)
     if voter is None:
         raise HTTPException(status_code=404, detail="Voter not found")
     return voter
