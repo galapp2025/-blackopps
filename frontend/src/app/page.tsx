@@ -291,6 +291,7 @@ export default function DashboardPage() {
       {toast ? (
         <DispatchToast
           message={toast.message}
+          tone={toast.tone}
           onClose={() => setToast(null)}
         />
       ) : null}

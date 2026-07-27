@@ -44,7 +44,7 @@ export function IntelBriefingPanel({ voterName }: IntelBriefingPanelProps) {
         setTimeline(timelineRes.timeline ?? []);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Intel load failed");
+          setError(err instanceof Error ? err.message : "טעינת מודיעין נכשלה");
         }
       } finally {
         if (!cancelled) setLoading(false);

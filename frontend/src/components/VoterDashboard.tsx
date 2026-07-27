@@ -33,7 +33,7 @@ export default function Home() {
       setVoters(voterRows);
       setAgents(agentMap);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data");
+      setError(err instanceof Error ? err.message : "טעינת נתונים נכשלה");
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,7 @@ export default function Home() {
       setSelectedVoter(details);
       event.currentTarget.reset();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create voter");
+      setError(err instanceof Error ? err.message : "יצירת בוחר נכשלה");
     } finally {
       setBusy(false);
     }
@@ -75,7 +75,7 @@ export default function Home() {
       const details = await getVoter(voterId);
       setSelectedVoter(details);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load voter");
+      setError(err instanceof Error ? err.message : "טעינת בוחר נכשלה");
     } finally {
       setBusy(false);
     }
@@ -90,7 +90,7 @@ export default function Home() {
       setSelectedVoter(details);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to trigger enrichment");
+      setError(err instanceof Error ? err.message : "הפעלת העשרה נכשלה");
     } finally {
       setBusy(false);
     }
