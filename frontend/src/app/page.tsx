@@ -130,18 +130,20 @@ export default function DashboardPage() {
     setImportStatus("מייבא מצביעים…");
     try {
       let result: ImportResult | null = null;
-      let names: string[] = [];
 
       try {
         result = await api.importVoters(file);
-        setImportStatus(`יובאו ${result.imported}, כפילויות ${result.duplicates}`);
+        setImportStatus(
+          `יובאו ${result.imported}, כפילויות ${result.duplicates}${
+            result.classified != null ? ` · סווגו ${result.classified}` : ""
+          }`,
+        );
         const listed = await api.getVoters({ limit: 200 });
         setVoters(listed.voters);
-        names = listed.voters.map((v) => `${v.first_name} ${v.last_name}`.trim()).filter(Boolean);
       } catch (err) {
         if (err instanceof ApiError && (err.status === 404 || err.status === 405)) {
           setImportStatus("ייבוא API לא זמין — מעבד קובץ מקומית…");
-          names = await extractNamesFromFile(file);
+          const names = await extractNamesFromFile(file);
           result = {
             imported: names.length,
             duplicates: 0,
@@ -150,22 +152,32 @@ export default function DashboardPage() {
             source: "client",
           };
           setImportStatus(`יובאו ${names.length} שמות מהקובץ`);
-        } else {
-          throw err;
+          const plan = await refreshGotv(names.slice(0, 150));
+          setImportResult(result);
+          if (plan) {
+            showToast(`יובאו ${names.length} מצביעים`);
+            setTab("gotv");
+          }
+          return;
         }
+        throw err;
       }
 
       setImportResult(result);
-      if (names.length) {
-        setImportStatus(`מסווג GOTV עבור ${names.length} מצביעים…`);
-        const plan = await refreshGotv(names.slice(0, 150));
-        if (plan) {
-          setImportStatus(
-            `יובאו ${result?.imported ?? names.length}${result?.duplicates ? `, כפילויות ${result.duplicates}` : ""} · סווגו ${plan.classified}`,
-          );
-          showToast(`יובאו ${result?.imported ?? names.length} מצביעים`);
-          setTab("gotv");
-        }
+      setImportStatus("מרענן GOTV…");
+      const plan = await refreshGotv();
+      if (plan || result?.categories) {
+        setImportStatus(
+          `יובאו ${result.imported}, כפילויות ${result.duplicates} · סווגו ${
+            plan?.classified ?? result.classified ?? 0
+          }`,
+        );
+        showToast(
+          result.imported > 0
+            ? `יובאו ${result.imported} מצביעים`
+            : `כפילויות ${result.duplicates} · GOTV עודכן`,
+        );
+        setTab("gotv");
       }
     } catch (err) {
       setImportError(err instanceof ApiError || err instanceof Error ? err.message : "ייבוא נכשל");
@@ -240,7 +252,7 @@ export default function DashboardPage() {
                   onClick={() => void runOsint(parseManualNames(manual))}
                 >
                   {osintLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radar className="h-4 w-4" />}
-                  {osintLoading ? "טוען…" : "הרץ ניתוח OSINT"}
+                  {osintLoading ? "מנתח…" : "הרץ ניתוח OSINT"}
                 </button>
                 {osintProgress ? <span className="text-xs text-slate-400">{osintProgress}</span> : null}
               </div>
@@ -258,8 +270,15 @@ export default function DashboardPage() {
           {importResult ? (
             <div className="glass-panel flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm text-slate-300">
               <Users className="h-4 w-4 text-cyan-400" />
-              ייבוא אחרון: {importResult.imported} · כפילויות {importResult.duplicates}
+                  ייבוא אחרון: {importResult.imported} · כפילויות {importResult.duplicates}
+              {importResult.classified != null ? ` · סווגו ${importResult.classified}` : ""}
               {importResult.source === "client" ? " · עיבוד מקומי" : ""}
+              {importResult.categories ? (
+                <span className="w-full text-xs text-slate-500 sm:w-auto">
+                  SAFE {importResult.categories.safe ?? 0} · LEANING {importResult.categories.leaning ?? 0} · SWING{" "}
+                  {importResult.categories.swing ?? 0} · AT_RISK {importResult.categories.at_risk ?? 0}
+                </span>
+              ) : null}
             </div>
           ) : null}
 

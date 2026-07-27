@@ -506,17 +506,6 @@ export const api = {
   },
 
   dispatch: async (data: DispatchInput) => {
-    const templates: Record<string, string> = {
-      civic_duty: "היום יום הבחירות — הצבעתך חשובה לדמוקרטיה המקומית.",
-      community_pride: "הקהילה שלנו צריכה אותך בקלפי — בוא להיות חלק מהשינוי.",
-      fear_of_loss: "כל קול קובע. בלי ההשתתפות שלך — הקול שלנו עלול להיחלש.",
-      personal_benefit: "יש לך הזדמנות להשפיע על השירותים והעתיד בשכונה שלך.",
-    };
-    const message =
-      data.message ||
-      (data.message_template ? templates[data.message_template] : "") ||
-      "תזכורת הצבעה — נשמח לראותך בקלפי.";
-
     const result = await request<DispatchTask>("/dispatch", {
       method: "POST",
       body: {
@@ -526,8 +515,8 @@ export const api = {
         voterName: data.voter_name,
         channel: data.channel,
         priority: data.priority ?? 50,
-        message,
-        message_template: data.message_template,
+        message: data.message || undefined,
+        message_template: data.message_template || "civic_duty",
       },
     });
     return {

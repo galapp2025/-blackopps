@@ -19,7 +19,6 @@ const CHANNELS = [
 ];
 
 const TEMPLATES = [
-  { value: "", label: "ללא תבנית" },
   { value: "civic_duty", label: "חובה אזרחית" },
   { value: "community_pride", label: "גאוות קהילה" },
   { value: "fear_of_loss", label: "חשש מהפסד" },
@@ -35,7 +34,7 @@ export function DispatchPanel({ prefill, onToast }: DispatchPanelProps) {
   const [voterName, setVoterName] = useState("");
   const [channel, setChannel] = useState("WhatsApp");
   const [priority, setPriority] = useState(50);
-  const [template, setTemplate] = useState("");
+  const [template, setTemplate] = useState("civic_duty");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,8 +104,7 @@ export function DispatchPanel({ prefill, onToast }: DispatchPanelProps) {
         voter_name: voterName || undefined,
         channel,
         priority,
-        message_template: template || undefined,
-        message: prefill?.messaging_frame || undefined,
+        message_template: template || "civic_duty",
       });
       onToast(`משימה #${task.task_id || task.messageId || "חדשה"} נוצרה בהצלחה`, "ok");
       const data = await api.getDispatchStats();

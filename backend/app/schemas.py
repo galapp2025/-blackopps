@@ -200,10 +200,11 @@ class DispatchRequest(BaseModel):
 
     voter_id: str | None = Field(default=None, validation_alias=AliasChoices("voter_id", "voterId"))
     voter_name: str | None = Field(default=None, validation_alias=AliasChoices("voter_name", "voterName"))
-    channel: str | None = None
-    priority: int | None = 5
+    channel: str | None = "WhatsApp"
+    priority: int | None = 50
     message: str = ""
-    message_template: str | None = None
+    custom_message: str | None = None
+    message_template: str | None = "civic_duty"
 
 
 class DispatchResponse(BaseModel):

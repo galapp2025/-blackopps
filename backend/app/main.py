@@ -264,7 +264,15 @@ async def import_voters_excel(file: UploadFile = File(...), db: Session = Depend
             raise HTTPException(status_code=422, detail="No voter rows found in Excel file")
         result = import_voters(db, records)
         gotv_result = classify_db_voters(db, gotv_predictor)
-        return {**result, "gotv": {"classified": gotv_result["classified"], "categories": gotv_result["categories"]}}
+        total_in_db = db.query(Voter).count()
+        return {
+            "imported": result["imported"],
+            "duplicates": result["duplicates"],
+            "total": total_in_db,
+            "classified": gotv_result["classified"],
+            "categories": gotv_result["categories"],
+            "gotv": {"classified": gotv_result["classified"], "categories": gotv_result["categories"]},
+        }
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -552,9 +560,19 @@ async def dispatch_queue_stats() -> dict:
 @app.post("/dispatch", response_model=DispatchResponse)
 async def dispatch_message(payload: DispatchRequest) -> DispatchResponse:
     try:
-        message = (payload.message or payload.message_template or "").strip()
-        if not message:
-            raise HTTPException(status_code=422, detail="message or message_template required")
+        templates = {
+            "civic_duty": "היום יום הבחירות — הצבעתך חשובה לדמוקרטיה המקומית.",
+            "community_pride": "הקהילה שלנו צריכה אותך בקלפי — בוא להיות חלק מהשינוי.",
+            "fear_of_loss": "כל קול קובע. בלי ההשתתפות שלך — הקול שלנו עלול להיחלש.",
+            "personal_benefit": "יש לך הזדמנות להשפיע על השירותים והעתיד בשכונה שלך.",
+        }
+        template_key = (payload.message_template or "civic_duty").strip()
+        message = (
+            (payload.custom_message or "").strip()
+            or (payload.message or "").strip()
+            or templates.get(template_key, "")
+            or templates["civic_duty"]
+        )
         message_id = f"MSG-{int(datetime.now(UTC).timestamp() * 1000)}-{secrets.token_hex(3)}"
         channel = (payload.channel or "WhatsApp").strip() or "WhatsApp"
         queued_at = datetime.now(UTC).isoformat()
@@ -564,7 +582,7 @@ async def dispatch_message(payload: DispatchRequest) -> DispatchResponse:
             "message": message,
             "voter_id": payload.voter_id or "",
             "voter_name": payload.voter_name or "",
-            "priority": payload.priority or 5,
+            "priority": payload.priority or 50,
             "queued_at": queued_at,
             "status": "queued",
         }
