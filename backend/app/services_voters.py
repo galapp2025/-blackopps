@@ -133,9 +133,10 @@ def parse_excel_voters(content: bytes) -> list[dict[str, Any]]:
     return voters
 
 
-def import_voters(db: Session, records: list[dict[str, Any]]) -> dict[str, int]:
+def import_voters(db: Session, records: list[dict[str, Any]]) -> dict[str, Any]:
     imported = 0
     duplicates = 0
+    new_voters: list[Voter] = []
     for record in records:
         first = record["first_name"]
         last = record["last_name"]
@@ -176,9 +177,18 @@ def import_voters(db: Session, records: list[dict[str, Any]]) -> dict[str, int]:
             turnout_score=float(turnout),
         )
         db.add(voter)
+        db.flush()
+        new_voters.append(voter)
         imported += 1
     db.commit()
-    return {"imported": imported, "duplicates": duplicates, "total": imported + duplicates}
+    for v in new_voters:
+        db.refresh(v)
+    return {
+        "imported": imported,
+        "duplicates": duplicates,
+        "total": imported + duplicates,
+        "new_voters": new_voters,
+    }
 
 
 def apply_gotv_to_voter(voter: Voter, profile: GOTVProfile) -> None:

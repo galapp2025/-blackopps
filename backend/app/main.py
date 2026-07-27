@@ -267,8 +267,44 @@ async def import_voters_excel(file: UploadFile = File(...), db: Session = Depend
         if not records:
             raise HTTPException(status_code=422, detail="No voter rows found in Excel file")
         result = import_voters(db, records)
+        new_ids = [int(v.id) for v in (result.get("new_voters") or []) if getattr(v, "id", None) is not None]
         gotv_result = classify_db_voters(db, gotv_predictor)
         total_in_db = db.query(Voter).count()
+
+        # Option B: OSINT only on newly imported voters (capped)
+        osint_samples: list[dict] = []
+        new_voters: list[Voter] = []
+        if new_ids:
+            new_voters = (
+                db.query(Voter).filter(Voter.id.in_(new_ids[:100])).all()
+            )
+        for voter in new_voters:
+            name = f"{voter.first_name} {voter.last_name}".strip()
+            try:
+                profiles = await pipeline.enrich([name], location=voter.city or "", jurisdiction="il")
+                if not profiles:
+                    continue
+                p = profiles[0]
+                voter.raw_data = profile_to_dict(p)
+                voter.enriched_at = datetime.now(UTC)
+                if voter.support_score is None or float(voter.support_score) <= 0:
+                    voter.support_score = max(0.05, min(0.95, float(p.composite_score) / 100.0))
+                osint_samples.append(
+                    {
+                        "name": name,
+                        "composite": float(p.composite_score),
+                        "tier": p.tier.value if hasattr(p.tier, "value") else str(p.tier),
+                        "political": float(p.political_capital),
+                        "community": float(p.community_influence),
+                        "voter_reliability": float(p.voter_reliability),
+                        "financial": float(p.financial_leverage),
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("OSINT enrichment failed for %s: %s", name, exc)
+        if new_voters:
+            db.commit()
+
         return {
             "imported": result["imported"],
             "duplicates": result["duplicates"],
@@ -276,6 +312,8 @@ async def import_voters_excel(file: UploadFile = File(...), db: Session = Depend
             "classified": gotv_result["classified"],
             "categories": gotv_result["categories"],
             "gotv": {"classified": gotv_result["classified"], "categories": gotv_result["categories"]},
+            "osint_enriched": len(osint_samples),
+            "osint_samples": osint_samples[:20],
         }
     except HTTPException:
         raise

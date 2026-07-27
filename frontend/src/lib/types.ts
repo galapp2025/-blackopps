@@ -73,6 +73,16 @@ export type ImportResult = {
   total: number;
   classified?: number;
   categories?: Record<string, number>;
+  osint_enriched?: number;
+  osint_samples?: Array<{
+    name: string;
+    composite?: number;
+    tier?: string;
+    political?: number;
+    community?: number;
+    voter_reliability?: number;
+    financial?: number;
+  }>;
   names?: string[];
   source?: "api" | "client";
 };

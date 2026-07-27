@@ -1,17 +1,17 @@
 "use client";
 
 import { Loader2, Radar, Send, Swords, Target, Users } from "lucide-react";
-import { useCallback, useState } from "react";
+import dynamic from "next/dynamic";
+import { Suspense, useCallback, useEffect, useRef } from "react";
+import { useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
-import { DispatchPanel } from "@/components/DispatchPanel";
-import { DispatchToast } from "@/components/dashboard/DispatchToast";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { FileUploader } from "@/components/FileUploader";
-import { GOTVPanel } from "@/components/GOTVPanel";
-import { LoadingSkeleton } from "@/components/LoadingSkeleton";
-import { OppositionView } from "@/components/OppositionView";
-import { OSINTResults } from "@/components/OSINTResults";
-import { VoterTable } from "@/components/VoterTable";
+import { Skeleton } from "@/components/Skeleton";
+import { useToast } from "@/components/Toast";
+import { useTabState } from "@/hooks/useTabState";
 import { ApiError, api } from "@/lib/api";
 import { extractNamesFromFile } from "@/lib/fileParser";
 import type {
@@ -23,6 +23,27 @@ import type {
   ImportResult,
   Voter,
 } from "@/lib/types";
+
+const GOTVPanel = dynamic(() => import("@/components/GOTVPanel").then((m) => m.GOTVPanel), {
+  loading: () => <Skeleton variant="card" lines={4} />,
+  ssr: false,
+});
+const OppositionView = dynamic(() => import("@/components/OppositionView").then((m) => m.OppositionView), {
+  loading: () => <Skeleton variant="card" lines={4} />,
+  ssr: false,
+});
+const DispatchPanel = dynamic(() => import("@/components/DispatchPanel").then((m) => m.DispatchPanel), {
+  loading: () => <Skeleton variant="card" lines={4} />,
+  ssr: false,
+});
+const OSINTResults = dynamic(() => import("@/components/OSINTResults").then((m) => m.OSINTResults), {
+  loading: () => <Skeleton variant="card" />,
+  ssr: false,
+});
+const VoterTable = dynamic(() => import("@/components/VoterTable").then((m) => m.VoterTable), {
+  loading: () => <Skeleton variant="table" />,
+  ssr: false,
+});
 
 const TABS: { id: DashboardTab; label: string; icon: typeof Radar }[] = [
   { id: "osint", label: "מודיעין", icon: Radar },
@@ -38,8 +59,10 @@ function parseManualNames(text: string): string[] {
     .filter(Boolean);
 }
 
-export default function DashboardPage() {
-  const [tab, setTab] = useState<DashboardTab>("osint");
+function DashboardInner() {
+  const { push: pushToast } = useToast();
+  const [tab, setTab] = useTabState("osint");
+  const tablistRef = useRef<HTMLDivElement>(null);
   const [manual, setManual] = useState("");
   const [osintLoading, setOsintLoading] = useState(false);
   const [osintProgress, setOsintProgress] = useState<string | null>(null);
@@ -62,14 +85,16 @@ export default function DashboardPage() {
   const [compareError, setCompareError] = useState<string | null>(null);
 
   const [dispatchPrefill, setDispatchPrefill] = useState<GOTVPrediction | null>(null);
-  const [toast, setToast] = useState<{ message: string; tone: "ok" | "err" } | null>(null);
 
-  const showToast = useCallback((message: string, tone: "ok" | "err" = "ok") => {
-    setToast({ message, tone });
-    window.setTimeout(() => setToast(null), 3000);
-  }, []);
+  const showToast = useCallback(
+    (message: string, tone: "ok" | "err" | "warning" | "info" = "ok") => {
+      const type = tone === "ok" ? "success" : tone === "err" ? "error" : tone;
+      pushToast({ type, message });
+    },
+    [pushToast],
+  );
 
-  const runOsint = async (names: string[]) => {
+  const runOsint = useCallback(async (names: string[]) => {
     if (!names.length) {
       setOsintError("לא נמצאו שמות לניתוח");
       return;
@@ -78,7 +103,6 @@ export default function DashboardPage() {
     setOsintError(null);
     setOsintProgress(`מנתח ${names.length} שמות…`);
     try {
-      // Batch in chunks of 3 to keep UI responsive on Railway
       const all: EnrichmentResult[] = [];
       const chunk = 3;
       for (let i = 0; i < names.length; i += chunk) {
@@ -88,14 +112,26 @@ export default function DashboardPage() {
         all.push(...res.profiles);
         setProfiles([...all]);
       }
-      showToast("הניתוח הושלם");
+      showToast(`ניתוח OSINT הושלם עבור ${names.length} שמות`, "ok");
     } catch (err) {
-      setOsintError(err instanceof ApiError || err instanceof Error ? err.message : "ניתוח OSINT נכשל");
+      const msg = err instanceof ApiError || err instanceof Error ? err.message : "ניתוח OSINT נכשל";
+      setOsintError(msg);
+      showToast(msg, "err");
     } finally {
       setOsintLoading(false);
       setOsintProgress(null);
     }
-  };
+  }, [showToast]);
+
+  // Auto-OSINT: paste names → debounce 500ms → analyze (no button required)
+  useEffect(() => {
+    const names = parseManualNames(manual);
+    if (!names.length) return;
+    const timer = window.setTimeout(() => {
+      void runOsint(names);
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [manual, runOsint]);
 
   const refreshGotv = async (names?: string[]) => {
     setGotvLoading(true);
@@ -155,7 +191,7 @@ export default function DashboardPage() {
           const plan = await refreshGotv(names.slice(0, 150));
           setImportResult(result);
           if (plan) {
-            showToast(`יובאו ${names.length} מצביעים`);
+            showToast(`יובאו ${names.length.toLocaleString("he-IL")} מצביעים`, "ok");
             setTab("gotv");
           }
           return;
@@ -174,13 +210,36 @@ export default function DashboardPage() {
         );
         showToast(
           result.imported > 0
-            ? `יובאו ${result.imported} מצביעים`
+            ? `יובאו ${result.imported.toLocaleString("he-IL")} מצביעים`
             : `כפילויות ${result.duplicates} · GOTV עודכן`,
+          "ok",
         );
+        if ((result.osint_enriched ?? 0) > 0) {
+          showToast(`הועשרו ${result.osint_enriched} שמות בניתוח OSINT`, "ok");
+          if (result.osint_samples?.length) {
+            setProfiles((prev) => [
+              ...result.osint_samples!.map((s) => ({
+                name: s.name,
+                scores: {
+                  composite: s.composite,
+                  political: s.political,
+                  community: s.community,
+                  voter: s.voter_reliability,
+                  financial: s.financial,
+                },
+                tier: s.tier || "UNKNOWN",
+                recommendation: "Auto-OSINT on import",
+              })),
+              ...prev,
+            ]);
+          }
+        }
         setTab("gotv");
       }
     } catch (err) {
-      setImportError(err instanceof ApiError || err instanceof Error ? err.message : "ייבוא נכשל");
+      const msg = err instanceof ApiError || err instanceof Error ? err.message : "ייבוא נכשל";
+      setImportError(msg);
+      showToast(msg, "err");
     } finally {
       setImportLoading(false);
     }
@@ -192,27 +251,59 @@ export default function DashboardPage() {
     try {
       const result = await api.compare(a, b);
       setCompareResult(result);
+      showToast("השוואת מועמדים הושלמה", "info");
     } catch (err) {
-      setCompareError(err instanceof ApiError || err instanceof Error ? err.message : "השוואה נכשלה");
+      const msg = err instanceof ApiError || err instanceof Error ? err.message : "השוואה נכשלה";
+      setCompareError(msg);
+      showToast(msg, "err");
     } finally {
       setCompareLoading(false);
     }
   };
 
+  const onTabKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const idx = TABS.findIndex((t) => t.id === tab);
+    if (idx < 0) return;
+    // RTL: ArrowRight moves to previous visually (index -1), ArrowLeft to next
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setTab(TABS[(idx + 1) % TABS.length].id);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setTab(TABS[(idx - 1 + TABS.length) % TABS.length].id);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setTab(TABS[0].id);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setTab(TABS[TABS.length - 1].id);
+    }
+  };
+
   return (
     <AppShell title="BlackOpps" subtitle="מודיעין בחירות · GOTV · אופוזיציה · שיגור">
-      <div className="mb-6 flex flex-wrap gap-1 rounded-2xl border border-white/[0.06] bg-slate-900/40 p-1">
+      <div
+        ref={tablistRef}
+        role="tablist"
+        aria-label="ניווט לשוניות חמ״ל"
+        className="mb-6 flex flex-wrap gap-1 rounded-2xl border border-white/[0.06] bg-slate-900/40 p-1"
+        onKeyDown={onTabKeyDown}
+      >
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
+            role="tab"
+            id={`tab-${id}`}
+            aria-selected={tab === id}
+            aria-controls={`panel-${id}`}
+            tabIndex={tab === id ? 0 : -1}
             onClick={() => setTab(id)}
             className={`focus-ring inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold transition sm:flex-none sm:px-4 ${
               tab === id
                 ? "bg-white/[0.08] text-white shadow-sm ring-1 ring-white/10"
                 : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
             }`}
-            aria-current={tab === id ? "page" : undefined}
           >
             <Icon className="h-3.5 w-3.5" aria-hidden />
             {label}
@@ -221,8 +312,13 @@ export default function DashboardPage() {
       </div>
 
       {tab === "osint" ? (
-        <div className="space-y-6">
-          <div className="grid gap-4 lg:grid-cols-2">
+        <section
+          id="panel-osint"
+          role="tabpanel"
+          aria-labelledby="tab-osint"
+          className="tab-panel-enter content-auto space-y-6"
+        >
+          <div className="card-stagger grid gap-4 lg:grid-cols-2">
             <FileUploader
               loading={importLoading}
               statusText={importStatus}
@@ -243,34 +339,44 @@ export default function DashboardPage() {
                 placeholder={"ישראל ישראלי\nשרה כהן\nמשה לוי"}
                 className="input custom-scrollbar w-full resize-y font-mono text-sm leading-relaxed"
                 disabled={osintLoading}
+                aria-describedby="osint-help"
               />
+              <span id="osint-help" className="sr-only">
+                הזן שמות בעברית, שורה לכל שם. הניתוח רץ אוטומטית לאחר חצי שנייה.
+              </span>
               <div className="mt-4 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  disabled={osintLoading || !manual.trim()}
-                  onClick={() => void runOsint(parseManualNames(manual))}
+                <div
+                  className="btn-primary pointer-events-none opacity-90"
+                  aria-live="polite"
+                  aria-label={osintLoading ? "מנתח OSINT אוטומטית" : "ניתוח OSINT אוטומטי פעיל"}
                 >
                   {osintLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radar className="h-4 w-4" />}
-                  {osintLoading ? "מנתח…" : "הרץ ניתוח OSINT"}
+                  {osintLoading ? "מנתח אוטומטית…" : "OSINT אוטומטי"}
+                </div>
+                <button
+                  type="button"
+                  className="btn-ghost text-xs"
+                  disabled={osintLoading || !manual.trim()}
+                  onClick={() => void runOsint(parseManualNames(manual))}
+                  aria-label="הפעל ניתוח OSINT מחדש"
+                >
+                  הרץ שוב
                 </button>
                 {osintProgress ? <span className="text-xs text-slate-400">{osintProgress}</span> : null}
               </div>
+              <p className="mt-2 text-xs text-slate-500">הדבקת שמות מפעילה ניתוח OSINT אוטומטית (debounce 500ms).</p>
               {osintError ? (
-                <div className="mt-3 rounded-xl border border-red-500/30 bg-red-950/40 px-3 py-2 text-sm text-red-100" role="alert">
-                  {osintError}
-                  <button type="button" className="btn-ghost ms-2 text-red-200" onClick={() => void runOsint(parseManualNames(manual))}>
-                    נסה שוב
-                  </button>
+                <div className="mt-3">
+                  <ErrorState message={osintError} onRetry={() => void runOsint(parseManualNames(manual))} />
                 </div>
               ) : null}
             </div>
           </div>
 
           {importResult ? (
-            <div className="glass-panel flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm text-slate-300">
-              <Users className="h-4 w-4 text-cyan-400" />
-                  ייבוא אחרון: {importResult.imported} · כפילויות {importResult.duplicates}
+            <div className="glass-panel data-refreshed flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm text-slate-300">
+              <Users className="h-4 w-4 text-cyan-400" aria-hidden />
+              ייבוא אחרון: {importResult.imported} · כפילויות {importResult.duplicates}
               {importResult.classified != null ? ` · סווגו ${importResult.classified}` : ""}
               {importResult.source === "client" ? " · עיבוד מקומי" : ""}
               {importResult.categories ? (
@@ -282,38 +388,74 @@ export default function DashboardPage() {
             </div>
           ) : null}
 
-          {osintLoading && profiles.length === 0 ? <LoadingSkeleton rows={3} /> : null}
+          {osintLoading && profiles.length === 0 ? <Skeleton variant="card" lines={4} /> : null}
+          {!osintLoading && profiles.length === 0 && !importResult ? (
+            <EmptyState
+              icon={<Radar className="mx-auto h-10 w-10" />}
+              title="התחל בניתוח מודיעין"
+              description="הזן שמות או העלה קובץ כדי להתחיל בניתוח OSINT"
+              action={{
+                label: "העלה קובץ מצביעים",
+                onClick: () => document.querySelector<HTMLButtonElement>('button[aria-label="העלה קובץ מצביעים"]')?.click(),
+              }}
+            />
+          ) : null}
           <OSINTResults profiles={profiles} />
           {voters.length > 0 ? <VoterTable voters={voters} /> : null}
-        </div>
+        </section>
       ) : null}
 
       {tab === "gotv" ? (
-        <GOTVPanel
-          plan={gotvPlan}
-          loading={gotvLoading}
-          error={gotvError}
-          onRefresh={() => void refreshGotv()}
-          onDispatch={(voter) => {
-            setDispatchPrefill(voter);
-            setTab("dispatch");
-          }}
-        />
+        <section id="panel-gotv" role="tabpanel" aria-labelledby="tab-gotv" className="tab-panel-enter content-auto">
+          <GOTVPanel
+            plan={gotvPlan}
+            loading={gotvLoading}
+            error={gotvError}
+            onRefresh={() => void refreshGotv()}
+            onImportHint={() => setTab("osint")}
+            onDispatch={(voter) => {
+              setDispatchPrefill(voter);
+              setTab("dispatch");
+            }}
+          />
+        </section>
       ) : null}
 
       {tab === "opposition" ? (
-        <OppositionView result={compareResult} loading={compareLoading} error={compareError} onCompare={(a, b) => void handleCompare(a, b)} />
+        <section
+          id="panel-opposition"
+          role="tabpanel"
+          aria-labelledby="tab-opposition"
+          className="tab-panel-enter content-auto"
+        >
+          <OppositionView
+            result={compareResult}
+            loading={compareLoading}
+            error={compareError}
+            onCompare={(a, b) => void handleCompare(a, b)}
+          />
+        </section>
       ) : null}
 
-      {tab === "dispatch" ? <DispatchPanel prefill={dispatchPrefill} onToast={showToast} /> : null}
-
-      {toast ? (
-        <DispatchToast
-          message={toast.message}
-          tone={toast.tone}
-          onClose={() => setToast(null)}
-        />
+      {tab === "dispatch" ? (
+        <section id="panel-dispatch" role="tabpanel" aria-labelledby="tab-dispatch" className="tab-panel-enter content-auto">
+          <DispatchPanel prefill={dispatchPrefill} onToast={showToast} />
+        </section>
       ) : null}
     </AppShell>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell title="BlackOpps" subtitle="טוען…">
+          <Skeleton variant="card" lines={5} />
+        </AppShell>
+      }
+    >
+      <DashboardInner />
+    </Suspense>
   );
 }
