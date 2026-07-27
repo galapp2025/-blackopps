@@ -28,6 +28,33 @@ cp .env.example .env
 docker compose up --build
 ```
 
+## BLOCK 2 — דיפלוי בקאנד ל-Railway (`blackopps-api`)
+
+קבצים: `backend/railway.toml`, `backend/Dockerfile`, `backend/start.sh` (מאזין ל־`$PORT`).
+
+```bash
+cd backend
+npx @railway/cli link -p blackopps -s blackopps-api
+npx @railway/cli variable set \
+  NEWSAPI_KEY=... \
+  OPENSANCTIONS_API_KEY=... \
+  DATABASE_URL='${{Postgres.DATABASE_URL}}' \
+  REDIS_URL='${{Redis.REDIS_URL}}' \
+  INTELLIGENCE_SYNC_FALLBACK=true
+npx @railway/cli up -y --service blackopps-api
+```
+
+בדיקות:
+
+```bash
+curl https://blackopps-api-production.up.railway.app/docs
+curl -X POST https://blackopps-api-production.up.railway.app/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"names":["ישראל ישראלי"]}'
+```
+
+Production URL: https://blackopps-api-production.up.railway.app
+
 שירותים:
 - API: http://localhost:8000
 - Docs: http://localhost:8000/docs
@@ -64,6 +91,8 @@ npm run dev
 ## API עיקרי
 
 - `GET /health` — בדיקת תקינות
+- `POST /analyze` — ניתוח מודיעין BlackOpps (מופעל ב־**Celery worker**, לא inline ב־API)
+- `POST /dispatch` — תור הודעות ב־**Redis** (`blackopps:dispatch:queue`) דרך Celery
 - `GET /agents` — רשימת 24 סוכני ההעשרה
 - `GET /voters` — רשימת בוחרים
 - `POST /voters` — יצירת בוחר

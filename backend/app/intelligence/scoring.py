@@ -1,336 +1,641 @@
-from __future__ import annotations
+"""
+Multi-Dimensional Influence Scoring Engine.
+
+Scoring Dimensions:
+  political_capital   — Political activity, donations, connections, party affiliation
+  community_influence — Social media presence, news mentions, community roles
+  voter_reliability   — Voting history, civic engagement, registration status
+  financial_leverage  — Business ties, wealth indicators, economic interests
+
+All dimensions: 0-100. Composite: weighted aggregation with configurable weights.
+
+Weights are calibrated for election influence assessment:
+  - political_capital:   30%  (direct political power)
+  - community_influence: 25%  (ability to sway others)
+  - voter_reliability:   25%  (probability of voting)
+  - financial_leverage:  20%  (economic influence)
+"""
 
 from dataclasses import dataclass, field
+from typing import Optional
 from enum import Enum
-from typing import Any
 
 
 class InfluenceTier(str, Enum):
-    CRITICAL = "CRITICAL"
-    HIGH = "HIGH"
-    MODERATE = "MODERATE"
-    LOW = "LOW"
-    NEGLIGIBLE = "NEGLIGIBLE"
-
-
-TIER_THRESHOLDS = (85, 70, 50, 30, 0)
-
-
-@dataclass
-class InfluenceProfile:
-    name: str
-    political_score: float
-    community_score: float
-    voter_score: float
-    financial_score: float
-    composite_score: float
-    tier: InfluenceTier
-    confidence: float
-    evidence: list[str] = field(default_factory=list)
-    recommendation: str = ""
-    engagement_strategy: str = ""
-    risks: list[str] = field(default_factory=list)
-    opportunities: list[str] = field(default_factory=list)
-    raw_data: dict[str, Any] = field(default_factory=dict)
-    sources: list[str] = field(default_factory=list)
+    CRITICAL = "critical"       # 85-100: Top-tier influencer
+    HIGH = "high"               # 70-84:  Significant influence
+    MODERATE = "moderate"       # 50-69:  Notable influence
+    LOW = "low"                 # 30-49:  Limited influence
+    NEGLIGIBLE = "negligible"   # 0-29:   Minimal influence
 
 
 def tier_from_score(score: float) -> InfluenceTier:
-    if score >= 85:
+    """Map a 0–100 (or 0–1) composite score to an influence tier."""
+    s = float(score)
+    if 0.0 <= s <= 1.0:
+        s *= 100.0
+    if s >= 85:
         return InfluenceTier.CRITICAL
-    if score >= 70:
+    if s >= 70:
         return InfluenceTier.HIGH
-    if score >= 50:
+    if s >= 50:
         return InfluenceTier.MODERATE
-    if score >= 30:
+    if s >= 30:
         return InfluenceTier.LOW
     return InfluenceTier.NEGLIGIBLE
 
 
+# ---- Influence Profile ----
+
+@dataclass
+class InfluenceProfile:
+    """Complete influence assessment for one entity."""
+    name: str
+    entity_id: Optional[str] = None
+
+    # Core dimensions (0-100)
+    political_capital: float = 0.0
+    community_influence: float = 0.0
+    voter_reliability: float = 0.0
+    financial_leverage: float = 0.0
+
+    # Composite
+    composite_score: float = 0.0
+    tier: InfluenceTier = InfluenceTier.NEGLIGIBLE
+
+    # Evidence & provenance
+    evidence: dict = field(default_factory=dict)
+    sources: list = field(default_factory=list)
+    confidence: float = 0.0  # Overall confidence in assessment
+
+    # Actionable intelligence
+    recommendation: str = ""
+    risk_factors: list = field(default_factory=list)
+    opportunities: list = field(default_factory=list)
+    engagement_strategy: str = ""
+
+    # Temporal tracking
+    last_updated: Optional[str] = None
+    change_since_last: Optional[dict] = None
+
+    # Compatibility aliases used by older API adapters
+    @property
+    def political_score(self) -> float:
+        return self.political_capital
+
+    @property
+    def community_score(self) -> float:
+        return self.community_influence
+
+    @property
+    def voter_score(self) -> float:
+        return self.voter_reliability
+
+    @property
+    def financial_score(self) -> float:
+        return self.financial_leverage
+
+    @property
+    def risks(self) -> list:
+        return self.risk_factors
+
+
+# ---- Dimension Sub-Scorers ----
+
 class PoliticalCapitalScorer:
-    def score(self, data: dict[str, Any]) -> tuple[float, list[str]]:
-        political = data.get("political", {})
-        evidence: list[str] = []
-        total = 0.0
+    """
+    Political capital — direct political power, connections, activity.
+    Sources: OpenSanctions, campaign finance records, party registries.
+    """
 
-        if political.get("is_pep"):
-            total += 35
-            evidence.append("PEP status identified")
-        sanctions = int(political.get("sanctions_count") or 0)
-        if sanctions:
-            total += min(20, sanctions * 5)
-            evidence.append(f"{sanctions} sanctions record(s)")
-        roles = political.get("political_roles") or []
-        role_pts = min(30, 15 * len(roles))
-        if role_pts:
-            total += role_pts
-            evidence.append(f"{len(roles)} political role(s)")
-        contributions = float(political.get("contributions_usd") or 0)
-        contrib_pts = min(15, contributions / 1000)
-        if contrib_pts:
-            total += contrib_pts
-            evidence.append("Political contributions detected")
-        if political.get("party_affiliation"):
-            total += 10
-            evidence.append("Party affiliation")
-        if political.get("party_leadership"):
-            total += 10
-            evidence.append("Party leadership role")
+    # Role tier scoring — reflects actual political power
+    ROLE_TIER_KEYWORDS = {
+        # Tier 1: Head of state/government (highest power)
+        "head_of_state": [
+            "president", "prime minister", "premier", "chancellor",
+            "ראש ממשלה", "נשיא", 'רוה"מ',
+        ],
+        # Tier 2: Cabinet-level ministers
+        "minister": [
+            "minister", "secretary", "attorney general",
+            "שר", "שרה",
+        ],
+        # Tier 3: Parliament/Congress members
+        "legislator": [
+            "member of parliament", "member of knesset", "knesset member", "parliament",
+            "senator", "congressman", "congresswoman", "mp", "mk", "חבר כנסת", "חכ", "חברת כנסת",
+        ],
+        # Tier 4: Local government / party officials
+        "local_official": [
+            "mayor", "governor", "council", "ראש עיר", "מועצה",
+        ],
+    }
 
-        return min(100.0, total), evidence
+    ROLE_TIER_SCORES = {
+        "head_of_state": 50,
+        "minister": 35,
+        "legislator": 25,
+        "local_official": 15,
+        "default": 10,
+    }
+
+    def _classify_role(self, role_text: str) -> str:
+        """Classify a political role string into a tier."""
+        role_lower = role_text.lower()
+        for tier, keywords in self.ROLE_TIER_KEYWORDS.items():
+            for kw in keywords:
+                if kw in role_lower:
+                    return tier
+        return "default"
+
+    def score(self, data: dict) -> tuple[float, dict]:
+        evidence = {}
+        score = 0.0
+
+        # OpenSanctions / sanctions list matches
+        sanctions = data.get("sanctions", {})
+        if sanctions.get("pep_status"):
+            evidence["pep"] = sanctions["pep_status"]
+            score += 40  # Raised from 35 — PEP is significant
+
+        if sanctions.get("sanctions_count", 0) > 0:
+            evidence["sanctions"] = sanctions["sanctions_count"]
+            score += 25  # Raised from 20 — sanctions are a red flag
+
+        if sanctions.get("political_roles", []):
+            roles = sanctions["political_roles"]
+            # Use tiered scoring: score each role by its tier, take best 3
+            role_scores = []
+            for role in roles:
+                role_text = role if isinstance(role, str) else role.get("role", str(role))
+                tier = self._classify_role(role_text)
+                role_scores.append(self.ROLE_TIER_SCORES.get(tier, 10))
+            role_scores.sort(reverse=True)
+            # Top 3 roles contribute (with diminishing returns after first)
+            top3 = role_scores[:3]
+            if top3:
+                role_bonus = top3[0] + sum(s * 0.3 for s in top3[1:])
+                evidence["political_roles"] = len(roles)
+                # Use the highest-tier role for evidence, not just the first one
+                best_role = max(roles, key=lambda r: self.ROLE_TIER_SCORES.get(
+                    self._classify_role(r if isinstance(r, str) else r.get("role", "")), 0
+                ))
+                best_role_text = best_role if isinstance(best_role, str) else best_role.get("role", "")
+                evidence["top_role_tier"] = self._classify_role(best_role_text)
+                evidence["top_role"] = best_role_text
+                score += role_bonus
+
+        # Campaign contributions
+        contributions = data.get("contributions", {})
+        if contributions.get("total_donated", 0) > 0:
+            evidence["contributions"] = contributions["total_donated"]
+            score += min(contributions["total_donated"] / 1000, 15)
+
+        # Party / organizational affiliation
+        affiliation = data.get("affiliation", {})
+        if affiliation.get("party_member"):
+            evidence["party"] = affiliation["party_name"]
+            score += 10
+        if affiliation.get("party_role"):
+            evidence["party_role"] = affiliation["party_role"]
+            score += 15  # Raised from 10 — formal party role matters
+
+        return min(score, 100), evidence
 
 
 class CommunityInfluenceScorer:
-    def score(self, data: dict[str, Any]) -> tuple[float, list[str]]:
+    """
+    Community influence — ability to sway others, public visibility.
+    Sources: social media, news mentions, community leadership roles.
+    """
+
+    def score(self, data: dict) -> tuple[float, dict]:
+        evidence = {}
+        score = 0.0
+
+        # Social media presence
+        social = data.get("social", {})
+        if social.get("twitter", {}):
+            tw = social["twitter"]
+            followers = tw.get("followers", 0)
+            evidence["twitter_followers"] = followers
+            score += min(followers / 100, 25)
+
+        if social.get("facebook", {}):
+            fb = social["facebook"]
+            friends = fb.get("friends_estimate", 0)
+            evidence["facebook_presence"] = friends
+            score += min(friends / 200, 10)
+
+        if social.get("linkedin", {}):
+            li = social["linkedin"]
+            connections = li.get("connections_estimate", 0)
+            evidence["linkedin_connections"] = connections
+            score += min(connections / 100, 10)
+
+        # News mentions
+        news = data.get("news", {})
+        mentions = news.get("mention_count", 0)
+        evidence["news_mentions"] = mentions
+        score += min(mentions * 5, 20)
+
+        sentiment = news.get("sentiment", {})
+        if sentiment:
+            pos = sentiment.get("positive", 0)
+            evidence["positive_sentiment_pct"] = pos
+            score += pos * 0.15
+
+        # Community roles
         community = data.get("community", {})
-        evidence: list[str] = []
-        total = 0.0
+        roles = community.get("leadership_roles", [])
+        evidence["community_roles"] = len(roles)
+        score += min(len(roles) * 8, 20)
 
-        twitter = int(community.get("twitter_followers") or 0)
-        if twitter:
-            pts = min(25, twitter / 100)
-            total += pts
-            evidence.append(f"Twitter reach ~{twitter}")
-        facebook = int(community.get("facebook_followers") or 0)
-        if facebook:
-            total += min(10, facebook / 200)
-            evidence.append(f"Facebook reach ~{facebook}")
-        linkedin = int(community.get("linkedin_connections") or 0)
-        if linkedin:
-            total += min(10, linkedin / 100)
-            evidence.append(f"LinkedIn network ~{linkedin}")
-        mentions = int(community.get("news_mentions") or 0)
-        if mentions:
-            total += min(20, 5 * mentions)
-            evidence.append(f"{mentions} news mention(s)")
-        sentiment = float(community.get("sentiment_score") or 0)
-        if sentiment > 0:
-            total += min(15, sentiment * 0.15 * 100)
-            evidence.append("Positive media sentiment")
-        roles = community.get("community_roles") or []
-        if roles:
-            total += min(20, 8 * len(roles))
-            evidence.append(f"{len(roles)} community role(s)")
-
-        return min(100.0, total), evidence
+        return min(score, 100), evidence
 
 
 class VoterReliabilityScorer:
-    CONSISTENCY_BONUS = {
-        "always": 20,
-        "usually": 12,
-        "sometimes": 5,
-        "rarely": 0,
-        "never": -20,
-    }
+    """
+    Voter reliability — probability and consistency of voting.
+    Sources: voter history records, registration data, civic engagement.
+    """
 
-    def score(self, data: dict[str, Any]) -> tuple[float, list[str]]:
-        voter = data.get("voter", {})
-        evidence: list[str] = []
-        total = 50.0
+    def score(self, data: dict) -> tuple[float, dict]:
+        evidence = {}
+        score = 50.0  # Base: registered voter
 
-        turnout = float(voter.get("turnout_pct") or 0)
-        if turnout:
-            total += turnout * 0.3
-            evidence.append(f"Turnout history ~{turnout:.0f}%")
-        consistency = str(voter.get("consistency") or "").lower()
-        bonus = self.CONSISTENCY_BONUS.get(consistency, 0)
-        total += bonus
-        if consistency:
-            evidence.append(f"Voting consistency: {consistency}")
-        if voter.get("registered"):
-            total += 5
-            evidence.append("Active registration")
-        years = float(voter.get("years_registered") or 0)
-        if years:
-            total += min(10, years * 0.5)
-            evidence.append(f"{years:.0f} years registered")
-        if voter.get("volunteer"):
-            total += 5
-            evidence.append("Volunteer activity")
-        if voter.get("donor"):
-            total += 5
-            evidence.append("Donor activity")
+        # Voting history
+        history = data.get("voting_history", {})
+        elections = history.get("recent_elections", [])
+        if elections:
+            voted_count = sum(1 for e in elections if e.get("voted"))
+            turnout_pct = (voted_count / len(elections)) * 100
+            evidence["recent_turnout"] = turnout_pct
+            score += turnout_pct * 0.3
 
-        return max(0.0, min(100.0, total)), evidence
+        consistency = history.get("consistency", "unknown")
+        evidence["consistency"] = consistency
+        consistency_bonus = {
+            "always": 20,
+            "usually": 12,
+            "sometimes": 5,
+            "rarely": 0,
+            "never": -20,
+            "unknown": 0,
+        }
+        score += consistency_bonus.get(consistency, 0)
+
+        # Registration
+        registration = data.get("registration", {})
+        if registration.get("registered"):
+            evidence["registered"] = True
+            score += 5
+        if registration.get("registration_date"):
+            import datetime
+            try:
+                reg_date = datetime.datetime.strptime(
+                    registration["registration_date"], "%Y-%m-%d"
+                )
+                years_registered = (datetime.datetime.now() - reg_date).days / 365
+                evidence["years_registered"] = round(years_registered, 1)
+                score += min(years_registered * 0.5, 10)
+            except (ValueError, TypeError):
+                pass
+
+        # Civic engagement
+        civic = data.get("civic", {})
+        if civic.get("volunteer"):
+            evidence["volunteer"] = True
+            score += 5
+        if civic.get("donor"):
+            evidence["donor"] = True
+            score += 5
+
+        return max(0, min(score, 100)), evidence
 
 
 class FinancialLeverageScorer:
-    NET_WORTH_BONUS = {"high": 20, "upper_mid": 12, "mid": 5}
+    """
+    Financial leverage — economic influence, business connections.
+    Sources: OpenCorporates, property records, business registries.
+    """
 
-    def score(self, data: dict[str, Any]) -> tuple[float, list[str]]:
-        financial = data.get("financial", {})
-        evidence: list[str] = []
-        total = 0.0
+    def score(self, data: dict) -> tuple[float, dict]:
+        evidence = {}
+        score = 0.0
 
-        companies = int(financial.get("companies") or 0)
+        # Business ownership
+        business = data.get("business", {})
+        companies = business.get("companies", [])
         if companies:
-            total += min(25, 10 * companies)
-            evidence.append(f"{companies} corporate entity(ies)")
-        directors = int(financial.get("director_roles") or 0)
-        if directors:
-            total += min(20, 8 * directors)
-            evidence.append(f"{directors} director role(s)")
-        properties = int(financial.get("properties") or 0)
-        if properties:
-            total += min(16, 8 * properties)
-            evidence.append(f"{properties} property record(s)")
-        category = str(financial.get("net_worth_category") or "").lower()
-        if category in self.NET_WORTH_BONUS:
-            total += self.NET_WORTH_BONUS[category]
-            evidence.append(f"Net worth band: {category}")
-        filings = int(financial.get("filings") or 0)
-        if filings:
-            total += min(9, 3 * filings)
-            evidence.append(f"{filings} regulatory filing(s)")
-        contracts = int(financial.get("gov_contracts") or 0)
-        if contracts:
-            total += min(10, 10 * contracts)
-            evidence.append(f"{contracts} government contract(s)")
+            evidence["companies_owned"] = len(companies)
+            score += min(len(companies) * 10, 25)
 
-        return min(100.0, total), evidence
+        director_roles = business.get("director_roles", [])
+        if director_roles:
+            evidence["director_positions"] = len(director_roles)
+            score += min(len(director_roles) * 8, 20)
+
+        # Property
+        property_data = data.get("property", {})
+        if property_data.get("properties_owned", 0) > 0:
+            evidence["properties"] = property_data["properties_owned"]
+            score += min(property_data["properties_owned"] * 8, 16)
+
+        # Wealth indicators
+        wealth = data.get("wealth_indicators", {})
+        if wealth.get("estimated_net_worth_category"):
+            cat = wealth["estimated_net_worth_category"]
+            evidence["net_worth_category"] = cat
+            nw_bonus = {"high": 20, "upper_middle": 12, "middle": 5, "lower": 0}
+            score += nw_bonus.get(cat, 0)
+
+        if wealth.get("public_filings", []):
+            evidence["public_filings"] = len(wealth["public_filings"])
+            score += min(len(wealth["public_filings"]) * 3, 9)
+
+        # Government contracts
+        gov = data.get("government", {})
+        if gov.get("contracts", []):
+            evidence["gov_contracts"] = len(gov["contracts"])
+            score += min(len(gov["contracts"]) * 10, 10)
+
+        return min(score, 100), evidence
+
+
+# ---- Master Scorer ----
+
+DEFAULT_WEIGHTS = {
+    "political_capital": 0.30,
+    "community_influence": 0.25,
+    "voter_reliability": 0.25,
+    "financial_leverage": 0.20,
+}
+
+# Adaptive weights: when a profile type is detected, use specialized weights
+# that give more emphasis to the dominant dimension.
+PROFILE_WEIGHTS = {
+    "political": {
+        "political_capital": 0.45,
+        "community_influence": 0.20,
+        "voter_reliability": 0.15,
+        "financial_leverage": 0.20,
+    },
+    "community": {
+        "political_capital": 0.15,
+        "community_influence": 0.45,
+        "voter_reliability": 0.20,
+        "financial_leverage": 0.20,
+    },
+    "business": {
+        "political_capital": 0.20,
+        "community_influence": 0.15,
+        "voter_reliability": 0.15,
+        "financial_leverage": 0.50,
+    },
+    "general": {
+        "political_capital": 0.30,
+        "community_influence": 0.25,
+        "voter_reliability": 0.25,
+        "financial_leverage": 0.20,
+    },
+}
+
+TIER_THRESHOLDS = [
+    (85, InfluenceTier.CRITICAL),
+    (70, InfluenceTier.HIGH),
+    (50, InfluenceTier.MODERATE),
+    (30, InfluenceTier.LOW),
+    (0, InfluenceTier.NEGLIGIBLE),
+]
+
+# PEP override: when PEP detected and political_capital > 50, floor the composite
+PEP_COMPOSITE_FLOOR = 55  # PEPs are at minimum MODERATE
 
 
 class InfluenceScorer:
-    DEFAULT_WEIGHTS = {
-        "political": 0.30,
-        "community": 0.25,
-        "voter": 0.25,
-        "financial": 0.20,
-    }
+    """
+    Master influence scorer.
+    Aggregates four dimensions into a composite score with configurable weights.
+    """
 
-    def __init__(self, weights: dict[str, float] | None = None) -> None:
-        self.weights = {**self.DEFAULT_WEIGHTS, **(weights or {})}
+    def __init__(self, weights: dict | None = None):
+        self.weights = weights or DEFAULT_WEIGHTS
         self.political = PoliticalCapitalScorer()
         self.community = CommunityInfluenceScorer()
         self.voter = VoterReliabilityScorer()
         self.financial = FinancialLeverageScorer()
 
-    def score(self, name: str, raw_data: dict[str, Any]) -> InfluenceProfile:
-        political_score, p_ev = self.political.score(raw_data)
-        community_score, c_ev = self.community.score(raw_data)
-        voter_score, v_ev = self.voter.score(raw_data)
-        financial_score, f_ev = self.financial.score(raw_data)
+    def _detect_profile_type(self, pol_score: float, com_score: float,
+                             fin_score: float, data: dict) -> str:
+        """
+        Detect dominant profile type for adaptive weighting.
+        Returns: 'political', 'community', 'business', or 'general'
+        """
+        is_pep = bool(data.get("sanctions", {}).get("pep_status"))
 
+        if is_pep or pol_score >= 65:
+            return "political"
+        if fin_score >= 50:
+            return "business"
+        if com_score >= 60:
+            return "community"
+        return "general"
+
+    def _impute_missing_dimensions(self, pol_score: float, com_score: float,
+                                     vot_score: float, fin_score: float,
+                                     profile_type: str, data: dict) -> tuple[float, float, float, float]:
+        """
+        Impute conservative defaults for missing dimensions on high-value targets.
+        Avoids penalizing profiles when data simply wasn't collected (e.g., no
+        business API key available but target is clearly a political figure).
+        """
+        is_pep = bool(data.get("sanctions", {}).get("pep_status"))
+
+        if profile_type == "political" and pol_score >= 50:
+            # Political figures: assume baseline financial resources and voter reliability
+            if fin_score == 0:
+                fin_score = 35  # Conservative assumption — political figures have resources
+            if vot_score <= 50:
+                vot_score = max(vot_score, 60)  # Political figures are reliable voters
+
+        if profile_type == "business" and fin_score >= 50:
+            if pol_score == 0:
+                pol_score = 20  # Business figures often have political connections
+            if vot_score <= 50:
+                vot_score = max(vot_score, 55)
+
+        return pol_score, com_score, vot_score, fin_score
+
+    def score(self, name: str, data: dict) -> InfluenceProfile:
+        """Generate complete influence profile from collected data."""
+
+        # Score each dimension
+        pol_score, pol_evidence = self.political.score(data)
+        com_score, com_evidence = self.community.score(data)
+        vot_score, vot_evidence = self.voter.score(data)
+        fin_score, fin_evidence = self.financial.score(data)
+
+        # Detect profile type and impute missing dimensions
+        profile_type = self._detect_profile_type(pol_score, com_score, fin_score, data)
+        pol_score, com_score, vot_score, fin_score = self._impute_missing_dimensions(
+            pol_score, com_score, vot_score, fin_score, profile_type, data
+        )
+
+        # Use adaptive weights based on profile type
+        weights = PROFILE_WEIGHTS.get(profile_type, DEFAULT_WEIGHTS)
+
+        # Composite
         composite = (
-            political_score * self.weights["political"]
-            + community_score * self.weights["community"]
-            + voter_score * self.weights["voter"]
-            + financial_score * self.weights["financial"]
+            pol_score * weights["political_capital"]
+            + com_score * weights["community_influence"]
+            + vot_score * weights["voter_reliability"]
+            + fin_score * weights["financial_leverage"]
         )
-        composite = round(composite, 2)
-        tier = tier_from_score(composite)
-        evidence = p_ev + c_ev + v_ev + f_ev
-        confidence = min(0.95, 0.35 + 0.05 * len(evidence))
 
-        risks = self._identify_risks(raw_data, political_score, community_score)
-        opportunities = self._identify_opportunities(
-            raw_data, political_score, community_score, voter_score, financial_score
+        # PEP override: political figures with PEP status should not fall below MODERATE
+        is_pep = bool(data.get("sanctions", {}).get("pep_status"))
+        if is_pep and pol_score >= 50:
+            composite = max(composite, PEP_COMPOSITE_FLOOR)
+
+        # Determine tier
+        tier = InfluenceTier.NEGLIGIBLE
+        for threshold, t in TIER_THRESHOLDS:
+            if composite >= threshold:
+                tier = t
+                break
+
+        # Confidence: higher when more dimensions have data
+        dimensions_with_data = sum(
+            1 for s in [pol_score, com_score, vot_score, fin_score] if s > 0
         )
-        recommendation = self._generate_recommendation(tier, political_score, community_score, voter_score, financial_score)
-        strategy = self._engagement_strategy(political_score, community_score, voter_score, financial_score)
+        confidence = min(dimensions_with_data / 4 * 100, 95)
 
-        return InfluenceProfile(
+        # Build profile
+        profile = InfluenceProfile(
             name=name,
-            political_score=round(political_score, 2),
-            community_score=round(community_score, 2),
-            voter_score=round(voter_score, 2),
-            financial_score=round(financial_score, 2),
-            composite_score=composite,
+            political_capital=round(pol_score, 1),
+            community_influence=round(com_score, 1),
+            voter_reliability=round(vot_score, 1),
+            financial_leverage=round(fin_score, 1),
+            composite_score=round(composite, 1),
             tier=tier,
-            confidence=round(confidence, 2),
-            evidence=evidence,
-            recommendation=recommendation,
-            engagement_strategy=strategy,
-            risks=risks,
-            opportunities=opportunities,
-            raw_data=raw_data,
-            sources=list(raw_data.get("sources") or []),
+            confidence=round(confidence, 1),
+            evidence={
+                "political": pol_evidence,
+                "community": com_evidence,
+                "voter": vot_evidence,
+                "financial": fin_evidence,
+            },
+            sources=data.get("_sources", []),
+            recommendation=self._generate_recommendation(tier, composite, pol_score, vot_score),
+            risk_factors=self._identify_risks(data),
+            opportunities=self._identify_opportunities(tier, pol_score, com_score, vot_score),
+            engagement_strategy=self._engagement_strategy(tier, pol_score, com_score, vot_score, fin_score),
         )
 
-    def score_batch(self, items: list[tuple[str, dict[str, Any]]]) -> list[InfluenceProfile]:
-        return [self.score(name, data) for name, data in items]
+        return profile
 
-    def _generate_recommendation(
-        self,
-        tier: InfluenceTier,
-        political: float,
-        community: float,
-        voter: float,
-        financial: float,
-    ) -> str:
-        dominant = max(
-            ("political", political),
-            ("community", community),
-            ("voter", voter),
-            ("financial", financial),
-            key=lambda x: x[1],
-        )[0]
-        tier_text = {
-            InfluenceTier.CRITICAL: "Priority asset — executive-level engagement within 24h.",
-            InfluenceTier.HIGH: "High-value target — assign senior field lead this week.",
-            InfluenceTier.MODERATE: "Influenceable node — nurture via trusted community channels.",
-            InfluenceTier.LOW: "Monitor only — lightweight touchpoints.",
-            InfluenceTier.NEGLIGIBLE: "Deprioritize — batch comms only.",
-        }[tier]
-        dimension_text = {
-            "political": "Lead with policy credibility and institutional validators.",
-            "community": "Activate social proof and local amplifiers.",
-            "voter": "Focus on turnout reliability and peer mobilization.",
-            "financial": "Frame economic stability and partnership ROI.",
-        }[dominant]
-        return f"{tier_text} {dimension_text}"
+    def score_batch(self, names: list[str], data_map: dict[str, dict]) -> list[InfluenceProfile]:
+        """Score multiple entities at once."""
+        return [self.score(name, data_map.get(name, {})) for name in names]
 
-    def _identify_risks(self, data: dict[str, Any], political: float, community: float) -> list[str]:
-        risks: list[str] = []
-        political_data = data.get("political", {})
-        community_data = data.get("community", {})
-        if int(political_data.get("sanctions_count") or 0) >= 1:
-            risks.append("Sanctions exposure — legal review required before outreach")
-        if float(community_data.get("sentiment_score") or 0) < -0.3:
-            risks.append("Negative media sentiment — message testing mandatory")
-        if political_data.get("conflict_of_interest"):
-            risks.append("Potential conflict of interest in public records")
-        if community_data.get("controversial_content"):
-            risks.append("Controversial social content detected")
-        if political >= 70 and int(political_data.get("sanctions_count") or 0) == 0:
-            if not risks:
-                risks.append("High visibility — reputational sensitivity")
+    # ---- Intelligence generation ----
+
+    def _generate_recommendation(self, tier: InfluenceTier, composite: float,
+                                  pol: float, vot: float) -> str:
+        if tier == InfluenceTier.CRITICAL:
+            return (
+                "PRIORITY TARGET — Immediate direct engagement by senior field operative. "
+                "This individual has exceptional influence across multiple dimensions. "
+                "Personal contact essential. Prepare comprehensive briefing package."
+            )
+        elif tier == InfluenceTier.HIGH:
+            return (
+                "HIGH VALUE — Direct engagement recommended within 48 hours. "
+                "Significant community or political influence. Tailor approach based on "
+                "dominant dimension. Leverage existing network connections if available."
+            )
+        elif tier == InfluenceTier.MODERATE:
+            if pol > 50:
+                return (
+                    "POLITICAL TARGET — Has political influence. Engage via policy "
+                    "channels. Senior operative or political liaison recommended. "
+                    "Monitor PEP/sanctions status for changes."
+                )
+            if vot > 70:
+                return (
+                    "RELIABLE VOTER — Canvass for turnout confirmation. "
+                    "Moderate influence profile but consistent voter. Focus on "
+                    "get-out-the-vote messaging. Good candidate for volunteer recruitment."
+                )
+            return (
+                "STANDARD ENGAGEMENT — Include in targeted outreach campaigns. "
+                "Moderate potential. Digital + mail contact sufficient. "
+                "Monitor for changes in influence profile."
+            )
+        elif tier == InfluenceTier.LOW:
+            return (
+                "LOW PRIORITY — Mass outreach appropriate. Limited influence. "
+                "Include in broad awareness campaigns. Worth monitoring for "
+                "changes if circumstances shift."
+            )
+        return (
+            "MINIMAL — Standard voter rolls treatment. No special engagement "
+            "warranted. Flag for re-evaluation if new data emerges."
+        )
+
+    def _identify_risks(self, data: dict) -> list[str]:
+        risks = []
+        if data.get("sanctions", {}).get("sanctions_count", 0) > 0:
+            risks.append("Sanctions exposure — reputational risk if publicly associated")
+        if data.get("news", {}).get("negative_mentions", 0) > 3:
+            risks.append("Negative media profile — may attract unwanted attention")
+        if data.get("business", {}).get("conflict_indicators", []):
+            risks.append("Potential conflicts of interest flagged")
+        if data.get("social", {}).get("controversial_content", False):
+            risks.append("Controversial social media content detected")
         return risks
 
-    def _identify_opportunities(
-        self,
-        data: dict[str, Any],
-        political: float,
-        community: float,
-        voter: float,
-        financial: float,
-    ) -> list[str]:
-        opportunities: list[str] = []
-        if community >= 65:
-            opportunities.append("Community amplifier — leverage for peer-to-peer reach")
-        if political >= 60:
-            opportunities.append("Political access node — coalition building potential")
-        if voter >= 70:
-            opportunities.append("Reliable turnout anchor — mobilization captain candidate")
-        if financial >= 55:
-            opportunities.append("Fundraising leverage — donor network introduction")
-        if int(data.get("community", {}).get("news_mentions") or 0) >= 5:
-            opportunities.append("Media visibility — timed narrative insertion")
+    def _identify_opportunities(self, tier: InfluenceTier, pol: float,
+                                 com: float, vot: float) -> list[str]:
+        opportunities = []
+        if com > 70:
+            opportunities.append("Community amplifier — can reach 10-50x through network effect")
+        if pol > 60:
+            opportunities.append("Political access point — potential conduit to decision-makers")
+        if vot > 80:
+            opportunities.append("Reliable turnout — low-effort vote secured")
+        if tier in (InfluenceTier.CRITICAL, InfluenceTier.HIGH):
+            opportunities.append("Fundraising potential — likely donor or fundraiser")
         return opportunities
 
-    def _engagement_strategy(self, political: float, community: float, voter: float, financial: float) -> str:
-        scores = {
-            "political": political,
-            "community": community,
-            "voter": voter,
-            "financial": financial,
-        }
-        dominant = max(scores, key=scores.get)
+    def _engagement_strategy(self, tier: InfluenceTier, pol: float,
+                              com: float, vot: float, fin: float) -> str:
+        dominant = max(
+            ("political", pol), ("community", com),
+            ("voter", vot), ("financial", fin), key=lambda x: x[1]
+        )[0]
+
         strategies = {
-            "political": "Institutional briefing → policy roundtable → closed-door endorsement path.",
-            "community": "Influencer co-sign → localized content drops → event invite ladder.",
-            "voter": "Turnout pledge → volunteer squad → election-day shuttle priority.",
-            "financial": "Economic impact brief → business council intro → partnership MOU track.",
+            "political": (
+                "Engage through policy discussions. Emphasize systemic impact. "
+                "Connect to broader political narrative. Senior operative required."
+            ),
+            "community": (
+                "Engage through community channels. Emphasize local impact. "
+                "Leverage social proof and network effects. Peer-to-peer optimal."
+            ),
+            "voter": (
+                "Direct GOTV approach. Emphasize civic duty and election stakes. "
+                "Minimal friction — confirm and remind. Standard canvassing effective."
+            ),
+            "financial": (
+                "Engage through economic framing. Emphasize fiscal impact. "
+                "Business-case approach. Personal network introduction preferred."
+            ),
         }
+
+        if tier == InfluenceTier.CRITICAL:
+            return strategies[dominant] + " FULL BRIEFING PACKAGE — all dimensions consolidated."
         return strategies[dominant]

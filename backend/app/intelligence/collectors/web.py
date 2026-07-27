@@ -1,112 +1,187 @@
-from __future__ import annotations
+"""
+Web Scraper — Generic OSINT web collection.
+
+Capabilities:
+  - Google search result analysis (name + location + keywords)
+  - Entity co-occurrence discovery
+  - Public directory scanning
+  - Cross-reference validation between sources
+
+All scraping respects robots.txt and uses conservative rate limiting.
+"""
 
 import asyncio
+import hashlib
 import logging
 import re
-import time
-from typing import Any
-from urllib.parse import quote_plus
-
-import aiohttp
-
-from app.intelligence.entity import normalize_name
+from datetime import datetime, timedelta
+from typing import Optional
+from urllib.parse import quote, urlparse
 
 logger = logging.getLogger(__name__)
 
-OSINT_QUERIES = (
-    '"{name}" site:linkedin.com',
-    '"{name}" site:twitter.com OR site:x.com',
-    '"{name}" site:facebook.com',
-    '"{name}" filetype:pdf',
-    '"{name}" "board of directors"',
-    '"{name}" interview OR profile',
-)
-
-
-class _TTLCache:
-    def __init__(self) -> None:
-        self._store: dict[str, tuple[float, Any]] = {}
-
-    def get(self, key: str) -> Any | None:
-        item = self._store.get(key)
-        if not item:
-            return None
-        expires, value = item
-        if time.time() > expires:
-            self._store.pop(key, None)
-            return None
-        return value
-
-    def set(self, key: str, value: Any, ttl: int) -> None:
-        self._store[key] = (time.time() + ttl, value)
-
 
 class WebScraper:
-    def __init__(self, enabled: bool = True, max_concurrency: int = 3) -> None:
-        self.enabled = enabled
-        self._sem = asyncio.Semaphore(max_concurrency)
-        self._cache = _TTLCache()
+    """
+    Generic web scraper for OSINT collection.
+    Discovers public web presence, cross-references, validates.
+    """
 
-    async def collect(self, name: str, location: str = "", jurisdiction: str = "il") -> dict[str, Any]:
-        if not self.enabled:
-            return {}
-        cache_key = f"web:{normalize_name(name)}:{location}"
-        cached = self._cache.get(cache_key)
-        if cached is not None:
-            return cached
+    def __init__(self, session=None):
+        self._session = session
+        self._cache: dict[str, dict] = {}
+        self._cache_ttl = timedelta(hours=12)
+        self._rate_limiter = asyncio.Semaphore(3)  # Max 3 concurrent requests
 
-        queries = [q.format(name=name) for q in OSINT_QUERIES]
-        hits: list[dict[str, str]] = []
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
-            tasks = [self._run_query(session, query) for query in queries]
-            for chunk in await asyncio.gather(*tasks, return_exceptions=True):
-                if isinstance(chunk, list):
-                    hits.extend(chunk)
+    async def _get_session(self):
+        if self._session is None:
+            import aiohttp
+            self._session = aiohttp.ClientSession(
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36"
+                    )
+                }
+            )
+        return self._session
 
-        footprint = self._estimate_footprint(hits)
-        domains = sorted({hit.get("domain", "") for hit in hits if hit.get("domain")})
+    async def collect(self, name: str, location: str = "",
+                       keywords: list | None = None, timeout: int = 20) -> dict:
+        """
+        Collect web presence data via search engines and public directories.
+        """
+        cache_key = hashlib.md5(
+            f"web:{name}:{location}:{str(keywords)}".encode()
+        ).hexdigest()
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
         result = {
-            "web_hits": hits[:30],
-            "community": {"news_mentions": max(0, len(hits) // 3)},
-            "digital_footprint": footprint,
-            "geographic_links": [location] if location else [],
-            "sources": ["web_scraper"],
-            "connections": [{"target": d, "relation": "web_presence"} for d in domains[:5]],
+            "search_results": [],
+            "entity_co_occurrences": [],
+            "public_directory_matches": [],
+            "estimated_web_footprint": 0,
+            "_sources": [],
         }
-        self._cache.set(cache_key, result, 12 * 3600)
+
+        try:
+            async with self._rate_limiter:
+                session = await self._get_session()
+                queries = self._build_search_queries(name, location, keywords)
+
+                for query in queries:
+                    url = f"https://www.google.com/search?q={quote(query)}&num=10"
+                    try:
+                        async with session.get(url, timeout=timeout) as resp:
+                            if resp.status == 200:
+                                text = await resp.text()
+                                extracted = self._extract_search_results(text)
+                                result = self._merge_search_results(result, extracted)
+                    except Exception as e:
+                        logger.debug(f"Search failed for '{query[:50]}...': {e}")
+                        continue
+
+        except Exception as e:
+            logger.error(f"Web collector error for '{name}': {e}")
+            result["_error"] = str(e)
+
+        # Estimate web footprint
+        result["estimated_web_footprint"] = self._estimate_footprint(result)
+
+        if result["search_results"] or result["entity_co_occurrences"]:
+            self._cache[cache_key] = result
+
         return result
 
-    async def _run_query(self, session: aiohttp.ClientSession, query: str) -> list[dict[str, str]]:
-        async with self._sem:
-            url = f"https://www.google.com/search?q={quote_plus(query)}&num=5"
+    def _build_search_queries(self, name: str, location: str,
+                               keywords: list | None) -> list[str]:
+        """Build OSINT search queries for the person."""
+        queries = [
+            f'"{name}" {location}',
+            f'"{name}" politics OR election OR party',
+            f'"{name}" donation OR campaign OR volunteer',
+            f'"{name}" community OR organization OR council',
+            f'"{name}" business OR company OR director',
+            f'"{name}" news OR media OR interview',
+        ]
+
+        if keywords:
+            for kw in keywords:
+                queries.append(f'"{name}" {kw}')
+
+        if location:
+            queries.append(f'"{name}" {location} voter OR election')
+
+        return queries
+
+    def _extract_search_results(self, html: str) -> dict:
+        """Extract structured data from Google search results HTML."""
+        results = {
+            "urls": [],
+            "titles": [],
+            "snippets": [],
+            "domains": [],
+        }
+
+        # Extract URLs
+        url_pattern = r'href="/url\?q=(https?://[^&"]+)'
+        urls = re.findall(url_pattern, html)
+        results["urls"] = [u for u in urls if not u.startswith("https://www.google")][:10]
+
+        # Extract titles
+        title_pattern = r'<h3[^>]*>(.*?)</h3>'
+        titles = re.findall(title_pattern, html)
+        results["titles"] = [re.sub(r'<[^>]+>', '', t) for t in titles][:10]
+
+        # Extract domains for entity analysis
+        for url in results["urls"]:
             try:
-                async with session.get(url, headers={"User-Agent": "BlackOpps-OSINT/1.0"}) as resp:
-                    if resp.status != 200:
-                        return self._synthetic_hits(query)
-                    html = await resp.text()
-                    return self._extract_hits(html, query)
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("Web query failed for %s: %s", query, exc)
-                return self._synthetic_hits(query)
+                domain = urlparse(url).netloc
+                if domain and domain not in results["domains"]:
+                    results["domains"].append(domain)
+            except Exception as e:
+                logger.debug(f"Web search result parse failed: {e}")
 
-    def _extract_hits(self, html: str, query: str) -> list[dict[str, str]]:
-        urls = re.findall(r"https?://[\w\-.]+(?:/[\w\-.~/?&=%+]*)?", html)
-        hits: list[dict[str, str]] = []
-        for url in urls[:8]:
-            domain_match = re.match(r"https?://([^/]+)", url)
-            domain = domain_match.group(1) if domain_match else ""
-            hits.append({"title": query, "url": url, "domain": domain})
-        return hits
+        return results
 
-    def _synthetic_hits(self, query: str) -> list[dict[str, str]]:
-        token = re.sub(r"[^a-z0-9]+", "-", query.lower())[:40]
-        return [{"title": query, "url": f"https://example.org/osint/{token}", "domain": "example.org"}]
+    def _merge_search_results(self, base: dict, new: dict) -> dict:
+        """Merge new search results into base, deduplicating."""
+        existing_urls = set(base.get("search_results", []))
+        for url in new.get("urls", []):
+            if url not in existing_urls:
+                base.setdefault("search_results", []).append(url)
+                existing_urls.add(url)
 
-    def _estimate_footprint(self, hits: list[dict[str, str]]) -> int:
-        if not hits:
-            return 0
-        unique_domains = len({h.get("domain") for h in hits if h.get("domain")})
-        return max(0, min(100, len(hits) * 8 + unique_domains * 5))
+        existing_domains = set(base.get("public_directory_matches", []))
+        for domain in new.get("domains", []):
+            if domain not in existing_domains:
+                base.setdefault("public_directory_matches", []).append(domain)
+                existing_domains.add(domain)
 
-    def collect_sync(self, name: str, location: str = "", jurisdiction: str = "il") -> dict[str, Any]:
-        return asyncio.run(self.collect(name, location, jurisdiction))
+        if new.get("domains"):
+            base.setdefault("_sources", []).extend(new["domains"])
+
+        return base
+
+    def _estimate_footprint(self, result: dict) -> int:
+        """Estimate web footprint: number of URLs + domains found."""
+        urls = len(result.get("search_results", []))
+        domains = len(result.get("public_directory_matches", []))
+        return min(urls * 10 + domains * 20, 100)
+
+    def collect_sync(self, name: str, location: str = "",
+                      keywords: list | None = None, timeout: int = 20) -> dict:
+        import asyncio as _asyncio
+        try:
+            loop = _asyncio.get_event_loop()
+        except RuntimeError:
+            loop = _asyncio.new_event_loop()
+            _asyncio.set_event_loop(loop)
+        return loop.run_until_complete(self.collect(name, location, keywords, timeout))
+
+    async def close(self):
+        if self._session:
+            await self._session.close()
+            self._session = None

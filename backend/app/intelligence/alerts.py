@@ -1,171 +1,229 @@
-from __future__ import annotations
+"""
+Alerting & Temporal Tracking — Change detection, monitoring, intelligence updates.
 
-import hashlib
+Capabilities:
+  - Track influence score changes over time
+  - Detect significant profile changes (new sanctions, news surge, etc.)
+  - Generate actionable alerts for field operatives
+  - Maintain historical snapshots for trend analysis
+"""
+
 import json
-import uuid
+import hashlib
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from typing import Any
+from enum import Enum
+from typing import Optional
 
-from app.intelligence.scoring import InfluenceProfile
+
+class AlertSeverity(str, Enum):
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFO = "info"
+
+
+class AlertType(str, Enum):
+    SANCTIONS_NEW = "sanctions_new"
+    NEWS_SURGE = "news_surge"
+    SCORE_CHANGE = "score_change"
+    NETWORK_EXPANSION = "network_expansion"
+    NEGATIVE_PRESS = "negative_press"
+    PROFILE_EMERGED = "profile_emerged"
+    DATA_EXPIRY = "data_expiry"
 
 
 @dataclass
 class Alert:
     alert_id: str
-    name: str
-    severity: str
-    message: str
-    created_at: datetime
+    entity_name: str
+    alert_type: AlertType
+    severity: AlertSeverity
+    title: str
+    description: str
+    timestamp: str
+    previous_value: Optional[float] = None
+    current_value: Optional[float] = None
+    delta: Optional[float] = None
+    recommended_action: str = ""
     acknowledged: bool = False
-    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class EntitySnapshot:
+    entity_name: str
+    timestamp: str
+    composite_score: float
+    tier: str
+    political_capital: float
+    community_influence: float
+    voter_reliability: float
+    financial_leverage: float
+    alert_count: int = 0
+    raw_data_hash: str = ""
 
 
 class AlertManager:
-    def __init__(self) -> None:
-        self._snapshots: dict[str, list[dict[str, Any]]] = {}
-        self._alerts: list[Alert] = []
+    """Manages alerts and temporal tracking for monitored entities."""
 
-    def take_snapshot(self, profile: InfluenceProfile) -> None:
-        payload = profile.raw_data or {}
-        raw_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
-        snap = {
-            "ts": datetime.now(UTC).isoformat(),
-            "composite": profile.composite_score,
-            "tier": profile.tier.value,
-            "political": profile.political_score,
-            "community": profile.community_score,
-            "voter": profile.voter_score,
-            "financial": profile.financial_score,
-            "raw_data_hash": raw_hash,
-        }
-        self._snapshots.setdefault(profile.name, []).append(snap)
+    def __init__(self, max_history_per_entity: int = 20):
+        self.alerts: list[Alert] = []
+        self.snapshots: dict[str, list[EntitySnapshot]] = {}
+        self.max_history = max_history_per_entity
+        self._alert_counter = 0
 
-    def detect_changes(self, profile: InfluenceProfile) -> list[Alert]:
-        history = self._snapshots.get(profile.name, [])
+    def take_snapshot(self, name: str, profile) -> EntitySnapshot:
+        raw_hash = hashlib.md5(
+            json.dumps(profile.evidence, sort_keys=True, default=str).encode()
+        ).hexdigest()
+        snapshot = EntitySnapshot(
+            entity_name=name,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            composite_score=profile.composite_score,
+            tier=profile.tier.value,
+            political_capital=profile.political_capital,
+            community_influence=profile.community_influence,
+            voter_reliability=profile.voter_reliability,
+            financial_leverage=profile.financial_leverage,
+            raw_data_hash=raw_hash,
+        )
+        if name not in self.snapshots:
+            self.snapshots[name] = []
+        self.snapshots[name].append(snapshot)
+        if len(self.snapshots[name]) > self.max_history:
+            self.snapshots[name] = self.snapshots[name][-self.max_history:]
+        return snapshot
+
+    def detect_changes(self, name: str, current_profile) -> list[Alert]:
+        history = self.snapshots.get(name, [])
         if len(history) < 2:
             return []
-        prev = history[-2]
-        alerts: list[Alert] = []
-        delta = profile.composite_score - float(prev["composite"])
-        if abs(delta) >= 15:
-            severity = "HIGH" if abs(delta) >= 25 else "MEDIUM"
-            alerts.append(self._create_alert(profile.name, severity, f"Composite score shifted by {delta:+.1f} points"))
-        if prev["tier"] != profile.tier.value:
-            alerts.append(
-                self._create_alert(
-                    profile.name,
-                    "HIGH",
-                    f"Influence tier changed {prev['tier']} → {profile.tier.value}",
-                )
-            )
-        self._alerts.extend(alerts)
-        return alerts
+        previous = history[-2]
+        new_alerts = []
+        score_delta = current_profile.composite_score - previous.composite_score
+        if abs(score_delta) >= 15:
+            direction = "surged" if score_delta > 0 else "dropped"
+            sev = AlertSeverity.HIGH if abs(score_delta) >= 25 else AlertSeverity.MEDIUM
+            new_alerts.append(self._create_alert(
+                name, AlertType.SCORE_CHANGE, sev,
+                title=f"Influence {direction} by {abs(score_delta):.0f} pts",
+                description=f"{name}: {previous.composite_score:.0f} -> {current_profile.composite_score:.0f}",
+                previous_value=previous.composite_score,
+                current_value=current_profile.composite_score,
+                delta=score_delta,
+                recommended_action=(
+                    "Full re-assessment needed." if abs(score_delta) >= 25
+                    else "Monitor trend."
+                ),
+            ))
+        if previous.tier != current_profile.tier.value:
+            new_alerts.append(self._create_alert(
+                name, AlertType.SCORE_CHANGE, AlertSeverity.HIGH,
+                title=f"Tier: {previous.tier} -> {current_profile.tier.value}",
+                description=f"{name} changed influence tier.",
+                recommended_action="Update engagement strategy.",
+            ))
+        return new_alerts
 
-    def check_sanctions_alert(self, profile: InfluenceProfile) -> list[Alert]:
-        political = profile.raw_data.get("political", {})
-        alerts: list[Alert] = []
-        sanctions = int(political.get("sanctions_count") or 0)
-        if sanctions >= 1:
-            lists = political.get("sanctions_lists") or []
-            list_names = ", ".join(str(x) for x in lists[:5]) or "unknown lists"
-            alerts.append(
-                self._create_alert(
-                    profile.name,
-                    "CRITICAL",
-                    f"Sanctions match ({sanctions}) on: {list_names}",
-                    {"sanctions_count": sanctions},
-                )
+    def check_sanctions_alert(self, name: str, data: dict) -> Optional[Alert]:
+        if data.get("sanctions_count", 0) > 0:
+            return self._create_alert(
+                name, AlertType.SANCTIONS_NEW, AlertSeverity.CRITICAL,
+                title=f"SANCTIONS: {name} on {data['sanctions_count']} list(s)",
+                description=f"Lists: {', '.join(data.get('sanctions_lists', []))}",
+                recommended_action="IMMEDIATE compliance review. Escalate to legal.",
             )
-        if political.get("is_pep") and political.get("pep_confirmed"):
-            alerts.append(self._create_alert(profile.name, "HIGH", "PEP status confirmed in OSINT sources"))
-        self._alerts.extend(alerts)
-        return alerts
-
-    def check_news_surge(self, profile: InfluenceProfile) -> list[Alert]:
-        history = self._snapshots.get(profile.name, [])
-        community = profile.raw_data.get("community", {})
-        mentions = int(community.get("news_mentions") or 0)
-        prev_mentions = 0
-        if len(history) >= 2:
-            prev_mentions = int(history[-2].get("news_mentions") or 0)
-        alerts: list[Alert] = []
-        if mentions >= 10 and prev_mentions > 0 and mentions >= prev_mentions * 3:
-            severity = "CRITICAL" if mentions >= 25 else "HIGH"
-            alerts.append(
-                self._create_alert(
-                    profile.name,
-                    severity,
-                    f"News surge detected: {mentions} mentions (prev {prev_mentions})",
-                    {"mentions": mentions},
-                )
+        if data.get("pep_status") == "confirmed":
+            return self._create_alert(
+                name, AlertType.SANCTIONS_NEW, AlertSeverity.HIGH,
+                title=f"PEP CONFIRMED: {name}",
+                description=f"Countries: {', '.join(data.get('pep_countries', ['unknown']))}",
+                recommended_action="Enhanced due diligence. Senior operative only.",
             )
-        if history:
-            history[-1]["news_mentions"] = mentions
-        self._alerts.extend(alerts)
-        return alerts
+        return None
 
-    def check_data_age(self, profile: InfluenceProfile, max_age_days: int = 14) -> list[Alert]:
-        collected_at = profile.raw_data.get("collected_at")
-        alerts: list[Alert] = []
-        if not collected_at:
-            return alerts
+    def check_news_surge(self, name: str, data: dict, prev: int = 0) -> Optional[Alert]:
+        current = data.get("mention_count", 0)
+        if current >= 10 and current >= prev * 3:
+            sev = AlertSeverity.CRITICAL if current >= 25 else AlertSeverity.HIGH
+            return self._create_alert(
+                name, AlertType.NEWS_SURGE, sev,
+                title=f"NEWS SURGE: {name} — {current} mentions",
+                description=f"Sentiment: {data.get('sentiment', {}).get('label', 'unknown')}",
+                recommended_action="Review coverage. Adjust timing.",
+            )
+        return None
+
+    def check_data_age(self, name: str, snap: EntitySnapshot) -> Optional[Alert]:
         try:
-            ts = datetime.fromisoformat(str(collected_at).replace("Z", "+00:00"))
-        except ValueError:
-            return alerts
-        age_days = (datetime.now(UTC) - ts).days
-        if age_days > max_age_days:
-            alerts.append(
-                self._create_alert(
-                    profile.name,
-                    "LOW",
-                    f"OSINT data stale ({age_days} days) — refresh recommended",
+            st = datetime.fromisoformat(snap.timestamp)
+            age = datetime.now(timezone.utc) - st.replace(tzinfo=timezone.utc)
+            if age > timedelta(days=14):
+                return self._create_alert(
+                    name, AlertType.DATA_EXPIRY, AlertSeverity.LOW,
+                    title=f"Data aging: {age.days}d",
+                    description=f"Profile {age.days}d old. Schedule refresh.",
+                    recommended_action="Schedule refresh cycle.",
                 )
-            )
-        self._alerts.extend(alerts)
-        return alerts
+        except (ValueError, TypeError):
+            pass
+        return None
 
-    def get_active_alerts(self, severity: str | None = None, acknowledged: bool = False) -> list[dict[str, Any]]:
-        items = [a for a in self._alerts if a.acknowledged == acknowledged]
+    def _create_alert(self, entity_name: str, alert_type: AlertType,
+                       severity: AlertSeverity, title: str, description: str,
+                       previous_value: Optional[float] = None,
+                       current_value: Optional[float] = None,
+                       delta: Optional[float] = None,
+                       recommended_action: str = "") -> Alert:
+        self._alert_counter += 1
+        alert = Alert(
+            alert_id=f"ALT-{self._alert_counter:06d}",
+            entity_name=entity_name,
+            alert_type=alert_type,
+            severity=severity,
+            title=title,
+            description=description,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            previous_value=previous_value,
+            current_value=current_value,
+            delta=delta,
+            recommended_action=recommended_action,
+        )
+        self.alerts.append(alert)
+        return alert
+
+    def get_active_alerts(self, severity: Optional[AlertSeverity] = None,
+                           acknowledged: Optional[bool] = False) -> list[Alert]:
+        alerts = [a for a in self.alerts if a.acknowledged == acknowledged]
         if severity:
-            items = [a for a in items if a.severity.upper() == severity.upper()]
+            alerts = [a for a in alerts if a.severity == severity]
+        return sorted(alerts, key=lambda a: a.timestamp, reverse=True)
+
+    def acknowledge(self, alert_id: str):
+        for a in self.alerts:
+            if a.alert_id == alert_id:
+                a.acknowledged = True
+                return
+
+    def get_timeline(self, name: str) -> list[dict]:
         return [
             {
-                "alert_id": a.alert_id,
-                "name": a.name,
-                "severity": a.severity,
-                "message": a.message,
-                "created_at": a.created_at.isoformat(),
-                "acknowledged": a.acknowledged,
-                "metadata": a.metadata,
+                "timestamp": s.timestamp, "composite": s.composite_score,
+                "tier": s.tier, "political": s.political_capital,
+                "community": s.community_influence, "voter": s.voter_reliability,
+                "financial": s.financial_leverage,
             }
-            for a in sorted(items, key=lambda x: x.created_at, reverse=True)
+            for s in self.snapshots.get(name, [])
         ]
 
-    def acknowledge(self, alert_id: str) -> bool:
-        for alert in self._alerts:
-            if alert.alert_id == alert_id:
-                alert.acknowledged = True
-                return True
-        return False
-
-    def get_timeline(self, name: str) -> list[dict[str, Any]]:
-        return list(self._snapshots.get(name, []))
-
-    def summary(self) -> dict[str, Any]:
-        active = [a for a in self._alerts if not a.acknowledged]
-        by_severity: dict[str, int] = {}
-        for alert in active:
-            by_severity[alert.severity] = by_severity.get(alert.severity, 0) + 1
-        return {"active_count": len(active), "by_severity": by_severity, "tracked_entities": len(self._snapshots)}
-
-    def _create_alert(self, name: str, severity: str, message: str, metadata: dict[str, Any] | None = None) -> Alert:
-        return Alert(
-            alert_id=str(uuid.uuid4()),
-            name=name,
-            severity=severity,
-            message=message,
-            created_at=datetime.now(UTC),
-            metadata=metadata or {},
-        )
+    def summary(self) -> dict:
+        active = self.get_active_alerts()
+        critical = [a for a in active if a.severity == AlertSeverity.CRITICAL]
+        return {
+            "total_alerts": len(self.alerts),
+            "active_alerts": len(active),
+            "critical_alerts": len(critical),
+            "tracked_entities": len(self.snapshots),
+            "latest_alert": active[0].timestamp if active else None,
+        }

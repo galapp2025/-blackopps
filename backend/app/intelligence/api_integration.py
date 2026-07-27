@@ -1,59 +1,94 @@
-from __future__ import annotations
+"""
+FastAPI Integration — Drop-in adapter for the existing BlackOpps API.
 
-from typing import Any
+This module shows how to integrate the OSINT intelligence layer into
+the existing POST /analyze endpoint. It replaces the local deterministic
+analysis with the full enrichment pipeline.
 
-from app.intelligence.pipeline import EnrichmentPipeline
-from app.intelligence.scoring import InfluenceProfile
+Usage in your FastAPI app:
 
-_pipeline: EnrichmentPipeline | None = None
+    from .intelligence import EnrichmentPipeline, InfluenceProfile
+
+    pipeline = EnrichmentPipeline(
+        opensanctions_key=os.getenv("OPENSANCTIONS_API_KEY"),
+        newsapi_key=os.getenv("NEWSAPI_KEY"),
+    )
+
+    @app.post("/analyze")
+    async def analyze(names: list[str]):
+        profiles = await pipeline.enrich(names)
+        return {
+            "profiles": [profile_to_dict(p) for p in profiles],
+            "summary": pipeline_summary(pipeline),
+        }
+"""
+
+from typing import Optional
+from .pipeline import EnrichmentPipeline
+from .scoring import InfluenceProfile, InfluenceTier
 
 
-def get_pipeline(**kwargs: Any) -> EnrichmentPipeline:
+# Singleton pipeline instance
+_pipeline: Optional[EnrichmentPipeline] = None
+
+
+def get_pipeline(**kwargs) -> EnrichmentPipeline:
+    """Get or create the enrichment pipeline singleton."""
     global _pipeline
     if _pipeline is None:
         _pipeline = EnrichmentPipeline(**kwargs)
     return _pipeline
 
 
-def reset_pipeline() -> None:
+def reset_pipeline():
+    """Reset pipeline (for testing)."""
     global _pipeline
     _pipeline = None
 
 
-def profile_to_dict(profile: InfluenceProfile) -> dict[str, Any]:
+def profile_to_dict(profile: InfluenceProfile) -> dict:
+    """Convert InfluenceProfile to API-safe dict."""
     return {
         "name": profile.name,
+        "entity_id": profile.entity_id,
         "scores": {
-            "political": profile.political_score,
-            "community": profile.community_score,
-            "voter": profile.voter_score,
-            "financial": profile.financial_score,
+            "political_capital": profile.political_capital,
+            "community_influence": profile.community_influence,
+            "voter_reliability": profile.voter_reliability,
+            "financial_leverage": profile.financial_leverage,
             "composite": profile.composite_score,
         },
         "tier": profile.tier.value,
         "confidence": profile.confidence,
         "recommendation": profile.recommendation,
         "engagement_strategy": profile.engagement_strategy,
-        "risks": profile.risks,
+        "risk_factors": profile.risk_factors,
         "opportunities": profile.opportunities,
         "evidence": profile.evidence,
         "sources": profile.sources,
     }
 
 
-def pipeline_summary(pipeline: EnrichmentPipeline) -> dict[str, Any]:
-    profiles = list(pipeline._profiles.values())
-    tier_distribution: dict[str, int] = {}
-    composite_total = 0.0
-    for profile in profiles:
-        tier_distribution[profile.tier.value] = tier_distribution.get(profile.tier.value, 0) + 1
-        composite_total += profile.composite_score
-    average_composite = round(composite_total / len(profiles), 2) if profiles else 0.0
+def pipeline_summary(pipeline: EnrichmentPipeline) -> dict:
+    """Generate pipeline-level summary."""
+    profiles = pipeline._profiles
+    if not profiles:
+        return {"total": 0, "tiers": {}, "alerts": {}}
+
+    tiers = {}
+    for p in profiles.values():
+        tiers[p.tier.value] = tiers.get(p.tier.value, 0) + 1
+
+    alert_summary = pipeline.alert_manager.summary()
+    network_summary = pipeline.get_network_summary()
+
     return {
         "total_profiles": len(profiles),
-        "tier_distribution": tier_distribution,
-        "average_composite": average_composite,
-        "alerts": pipeline.alerts.summary(),
-        "network": pipeline.get_network_summary(),
-        "hubs": pipeline.get_hubs()[:10],
+        "tier_distribution": tiers,
+        "average_composite": round(
+            sum(p.composite_score for p in profiles.values()) / len(profiles), 1
+        ),
+        "alerts": alert_summary,
+        "network": network_summary,
+        "hubs": pipeline.get_hubs(),
     }
