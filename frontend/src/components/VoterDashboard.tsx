@@ -12,8 +12,8 @@ import {
   type VoterListItem,
 } from "@/lib/api";
 
-function scoreBadge(score: number | null) {
-  if (score === null) return "—";
+function scoreBadge(score: number | null | undefined) {
+  if (score === null || score === undefined) return "—";
   return `${Math.round(score * 100)}%`;
 }
 
@@ -68,7 +68,7 @@ export default function Home() {
     }
   }
 
-  async function handleSelect(voterId: number) {
+  async function handleSelect(voterId: number | string) {
     setBusy(true);
     setError(null);
     try {
@@ -81,7 +81,7 @@ export default function Home() {
     }
   }
 
-  async function handleEnrich(voterId: number) {
+  async function handleEnrich(voterId: number | string) {
     setBusy(true);
     setError(null);
     try {
@@ -97,20 +97,9 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-cyan-300">Election Enrichment Engine</p>
-            <h1 className="text-2xl font-semibold">מנוע העשרת בוחרים</h1>
-          </div>
-          <div className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
-            {Object.keys(agents).length || 24} סוכני העשרה
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1.1fr_0.9fr]">
+    <div className="space-y-6">
+      <p className="text-sm text-slate-400">{Object.keys(agents).length || 24} סוכני העשרה פעילים</p>
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="space-y-6">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
             <div className="mb-4 flex items-center justify-between">
@@ -220,10 +209,10 @@ export default function Home() {
                 </div>
 
                 <div className="max-h-[28rem] space-y-2 overflow-y-auto">
-                  {selectedVoter.enrichments.length === 0 ? (
+                  {(selectedVoter.enrichments?.length ?? 0) === 0 ? (
                     <p className="text-sm text-slate-400">טרם הופעלה העשרה לבוחר זה.</p>
                   ) : (
-                    selectedVoter.enrichments.map((enrichment) => (
+                    selectedVoter.enrichments!.map((enrichment) => (
                       <div
                         key={enrichment.id}
                         className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3"
@@ -257,7 +246,7 @@ export default function Home() {
             </div>
           </div>
         </section>
-      </main>
+      </div>
 
       {error ? (
         <div className="fixed bottom-6 left-1/2 max-w-lg -translate-x-1/2 rounded-xl border border-red-500/40 bg-red-950 px-4 py-3 text-sm text-red-100">

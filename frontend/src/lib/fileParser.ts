@@ -21,13 +21,12 @@ export const fallbackNamesPool = [
   "דניאל כץ",
 ];
 
-function isBinaryExcel(file: File, text: string): boolean {
-  return (
-    file.name.endsWith(".xlsx") ||
-    file.name.endsWith(".xls") ||
-    text.includes("PK") ||
-    text.includes("[Content_Types]")
-  );
+function isExcelFile(file: File): boolean {
+  return file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+}
+
+function isBinaryExcel(text: string): boolean {
+  return text.includes("PK") || text.includes("[Content_Types]");
 }
 
 export function generateExcelDemoNames(count = EXCEL_DEMO_SIZE): string[] {
@@ -44,14 +43,44 @@ export function extractNamesFromText(text: string): string[] {
     .filter((name) => {
       if (name.length <= 1) return false;
       const lower = name.toLowerCase();
-      return !HEADER_MARKERS.some((marker) => lower.includes(marker)) && !JUNK_MARKERS.some((marker) => lower.includes(marker));
+      return (
+        !HEADER_MARKERS.some((marker) => lower.includes(marker)) &&
+        !JUNK_MARKERS.some((marker) => lower.includes(marker))
+      );
     });
 }
 
-export async function extractNamesFromFile(file: File): Promise<string[]> {
-  const text = await file.text();
+async function extractNamesFromExcel(file: File): Promise<string[]> {
+  const XLSX = await import("xlsx");
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) return [];
 
-  if (isBinaryExcel(file, text)) {
+  const sheet = workbook.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, { header: 1 });
+
+  const names = rows
+    .map((row) => String(row?.[0] ?? "").trim())
+    .filter((name) => {
+      if (name.length <= 1) return false;
+      const lower = name.toLowerCase();
+      return (
+        !HEADER_MARKERS.some((marker) => lower.includes(marker)) &&
+        !JUNK_MARKERS.some((marker) => lower.includes(marker))
+      );
+    });
+
+  return names.length > 0 ? names : generateExcelDemoNames();
+}
+
+export async function extractNamesFromFile(file: File): Promise<string[]> {
+  if (isExcelFile(file)) {
+    return extractNamesFromExcel(file);
+  }
+
+  const text = await file.text();
+  if (isBinaryExcel(text)) {
     return generateExcelDemoNames();
   }
 

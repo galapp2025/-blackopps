@@ -1,33 +1,42 @@
-import { type AnalyzedVoter } from "@/lib/metrics";
+import { Activity, Crosshair, Radar, Users } from "lucide-react";
+
+import { averageCompositeScore, highTierCount } from "@/lib/voterStats";
+import { type DashboardEntity } from "@/lib/types/dashboard";
 
 type StatsBarProps = {
-  voters: AnalyzedVoter[];
-  selectedVoter: AnalyzedVoter | null;
+  voters: DashboardEntity[];
+  selectedVoter: DashboardEntity | null;
+  summaryAvg?: number | null;
 };
 
-export function StatsBar({ voters, selectedVoter }: StatsBarProps) {
-  const highIntent = Math.floor(voters.length * 0.81);
+export function StatsBar({ voters, selectedVoter, summaryAvg }: StatsBarProps) {
+  const avg = summaryAvg ?? averageCompositeScore(voters);
+  const highIntent = highTierCount(voters);
 
   const stats = [
     {
-      label: "ישויות שנותחו בקובץ",
+      label: "ישויות שנותחו",
       value: voters.length.toLocaleString("he-IL"),
       tone: "text-white",
+      icon: Users,
     },
     {
-      label: "ממוצע התאמת פרופיל",
-      value: "82%",
+      label: "ממוצע מורכב",
+      value: String(avg),
       tone: "text-emerald-400",
+      icon: Activity,
     },
     {
-      label: "פוטנציאל הנעה גבוה",
+      label: "יעד HIGH / CRITICAL",
       value: highIntent.toLocaleString("he-IL"),
       tone: "text-red-400",
+      icon: Crosshair,
     },
     {
-      label: "נקודות מידע לישות",
-      value: "30",
-      tone: "text-white",
+      label: "מנוע פעיל",
+      value: "OSINT",
+      tone: "text-cyan-300",
+      icon: Radar,
     },
   ];
 
@@ -36,13 +45,16 @@ export function StatsBar({ voters, selectedVoter }: StatsBarProps) {
       {stats.map((stat, index) => (
         <div
           key={stat.label}
-          className="glass-panel animate-fade-up rounded-2xl p-4"
-          style={{ animationDelay: `${index * 60}ms` }}
+          className="glass-panel group animate-fade-up rounded-2xl p-4 transition-colors hover:border-white/10"
+          style={{ animationDelay: `${index * 50}ms` }}
         >
-          <p className="font-mono text-xs uppercase text-slate-400">{stat.label}</p>
-          <p className={`mt-1 font-mono text-2xl font-black tracking-tight ${stat.tone}`}>{stat.value}</p>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="section-eyebrow mb-0">{stat.label}</p>
+            <stat.icon className="h-4 w-4 text-slate-600 transition-colors group-hover:text-slate-400" aria-hidden />
+          </div>
+          <p className={`font-mono text-3xl font-black tabular-nums tracking-tight ${stat.tone}`}>{stat.value}</p>
           {selectedVoter && index === 0 ? (
-            <p className="mt-1 truncate text-xs text-slate-500">נבחר: {selectedVoter.name}</p>
+            <p className="mt-2 truncate text-xs text-slate-500">נבחר: {selectedVoter.name}</p>
           ) : null}
         </div>
       ))}

@@ -1,48 +1,69 @@
 import { BarChart3 } from "lucide-react";
 
-import { type AnalyzedVoter } from "@/lib/metrics";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { TierBadge } from "@/components/ui/TierBadge";
+import { type DashboardEntity } from "@/lib/types/dashboard";
 
 type MetricsPanelProps = {
-  voter: AnalyzedVoter;
+  voter: DashboardEntity;
 };
 
 function scoreTone(value: number): string {
-  if (value >= 85) return "from-rose-500 to-orange-400";
-  if (value >= 75) return "from-red-500 to-red-400";
+  if (value >= 75) return "from-rose-500 to-orange-400";
+  if (value >= 55) return "from-red-500 to-red-400";
   return "from-amber-500 to-yellow-400";
 }
 
 export function MetricsPanel({ voter }: MetricsPanelProps) {
+  const confidence = Math.round(voter.profile.confidence * 100);
+
   return (
     <section className="glass-panel rounded-3xl p-6 lg:col-span-2">
-      <div className="mb-5 flex items-center justify-between gap-3 border-b border-white/5 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 ring-1 ring-red-500/20">
-            <BarChart3 className="h-5 w-5 text-red-400" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">פרופיל אסטרטגי</p>
-            <h3 className="text-lg font-bold text-white">{voter.name}</h3>
-          </div>
-        </div>
-        <span className="rounded-full bg-slate-900 px-3 py-1 text-xs text-slate-400 ring-1 ring-white/5">30 נקודות</span>
-      </div>
+      <SectionHeader
+        eyebrow="פרופיל אסטרטגי"
+        title={voter.name}
+        icon={BarChart3}
+        trailing={<TierBadge tier={voter.profile.tier} />}
+      />
 
-      <div className="custom-scrollbar grid max-h-[560px] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+      <p className="mb-4 text-xs text-slate-500">
+        ביטחון מודל <span className="font-mono text-slate-400">{confidence}%</span>
+      </p>
+
+      {voter.profile.evidence.length > 0 ? (
+        <div className="mb-4 grid gap-2 sm:grid-cols-2">
+          {voter.profile.evidence.slice(0, 6).map((line) => (
+            <div
+              key={line}
+              className="rounded-xl border border-cyan-500/10 bg-cyan-500/[0.04] px-3 py-2.5 text-xs leading-relaxed text-cyan-100/90"
+            >
+              {line}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {voter.profile.sources.length > 0 ? (
+        <p className="mb-4 text-xs text-slate-500">
+          מקורות: <span className="text-slate-400">{voter.profile.sources.join(" · ")}</span>
+        </p>
+      ) : null}
+
+      <div className="custom-scrollbar grid max-h-[320px] grid-cols-1 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2">
         {Object.entries(voter.metrics).map(([name, value], index) => (
           <div
             key={name}
-            className="animate-fade-up rounded-2xl border border-white/5 bg-slate-950/50 p-3.5 transition-all hover:border-white/10 hover:bg-slate-900/60"
-            style={{ animationDelay: `${Math.min(index * 20, 240)}ms` }}
+            className="rounded-2xl border border-white/[0.05] bg-slate-950/40 p-3.5 transition-colors hover:border-white/[0.08] hover:bg-slate-900/50"
+            style={{ animationDelay: `${Math.min(index * 20, 200)}ms` }}
           >
             <div className="mb-2 flex items-start justify-between gap-3 text-xs">
               <span className="leading-5 text-slate-400">{name}</span>
-              <span className="font-mono text-sm font-bold text-red-300">{value}%</span>
+              <span className="font-mono text-sm font-bold tabular-nums text-red-300">{value}%</span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-800/90">
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-800/90">
               <div
-                className={`h-full rounded-full bg-gradient-to-r ${scoreTone(value)} transition-all duration-700`}
-                style={{ width: `${value}%` }}
+                className={`h-full rounded-full bg-gradient-to-l ${scoreTone(value)} transition-all duration-700 ease-out`}
+                style={{ width: `${Math.min(100, value)}%` }}
               />
             </div>
           </div>
