@@ -16,6 +16,11 @@ export function PdfDownloader({ name, className = "", label = "הורד תדרי
   const [error, setError] = useState<string | null>(null);
 
   const download = async () => {
+    if (!name?.trim()) {
+      setError("אין שם לתדריך");
+      return;
+    }
+    if (loading) return;
     setLoading(true);
     setError(null);
     try {
@@ -41,7 +46,7 @@ export function PdfDownloader({ name, className = "", label = "הורד תדרי
 
   return (
     <div className={className}>
-      <button type="button" className="btn-secondary text-xs" disabled={loading || !name} onClick={() => void download()}>
+      <button type="button" className="btn-secondary text-xs" disabled={loading} onClick={() => void download()}>
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
         {loading ? "טוען…" : label}
       </button>

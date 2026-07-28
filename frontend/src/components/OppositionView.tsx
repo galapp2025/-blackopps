@@ -15,6 +15,7 @@ type OppositionViewProps = {
   loading?: boolean;
   error?: string | null;
   onCompare: (a: string, b: string) => void;
+  onToast?: (message: string, kind: "ok" | "err") => void;
 };
 
 function CandidateColumn({
@@ -89,7 +90,7 @@ function CandidateColumn({
   );
 }
 
-export function OppositionView({ result, loading, error, onCompare }: OppositionViewProps) {
+export function OppositionView({ result, loading, error, onCompare, onToast }: OppositionViewProps) {
   const [a, setA] = useState("");
   const [b, setB] = useState("");
 
@@ -117,8 +118,13 @@ export function OppositionView({ result, loading, error, onCompare }: Opposition
         <button
           type="button"
           className="btn-primary mt-4"
-          disabled={loading || !a.trim() || !b.trim()}
-          onClick={() => onCompare(a.trim(), b.trim())}
+          onClick={() => {
+            if (!a.trim() || !b.trim()) {
+              onToast?.("הזן שני שמות מועמדים", "err");
+              return;
+            }
+            onCompare(a.trim(), b.trim());
+          }}
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-4 w-4" />}
           {loading ? "טוען…" : "השווה מועמדים"}

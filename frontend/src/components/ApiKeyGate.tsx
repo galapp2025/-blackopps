@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff, KeyRound, Shield } from "lucide-react";
+import { Eye, EyeOff, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { ApiError, api } from "@/lib/api";
@@ -19,6 +19,8 @@ export function ApiKeyGate({ children }: ApiKeyGateProps) {
   const [show, setShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [shake, setShake] = useState(false);
+  const [granted, setGranted] = useState(false);
 
   useEffect(() => {
     const existing = localStorage.getItem(STORAGE_KEY);
@@ -42,16 +44,29 @@ export function ApiKeyGate({ children }: ApiKeyGateProps) {
   }, []);
 
   const save = async () => {
+    if (!value.trim()) {
+      setError("הזן מפתח API לפני אישור");
+      setShake(true);
+      window.setTimeout(() => setShake(false), 400);
+      return;
+    }
+    if (saving) return;
     setSaving(true);
     setError(null);
     try {
       localStorage.setItem(STORAGE_KEY, value.trim());
       localStorage.removeItem(SKIP_KEY);
       await api.health();
-      setOpen(false);
+      setGranted(true);
+      window.setTimeout(() => {
+        setOpen(false);
+        setGranted(false);
+      }, 450);
     } catch (err) {
       if (err instanceof ApiError && err.code === "unauthorized") {
         setError("מפתח API לא תקין");
+        setShake(true);
+        window.setTimeout(() => setShake(false), 400);
         return;
       }
       // Health may succeed even without auth in open mode
@@ -72,17 +87,22 @@ export function ApiKeyGate({ children }: ApiKeyGateProps) {
     <>
       {children}
       {open ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md">
-          <div className="glass-panel-strong w-full max-w-md rounded-3xl p-6 sm:p-8" role="dialog" aria-modal aria-labelledby="api-key-title">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-red-950/70 p-4 backdrop-blur-md">
+          <div
+            className={`glass-panel-strong tactical-header w-full max-w-md rounded-3xl border border-red-500/25 p-6 sm:p-8 ${shake ? "auth-shake" : ""} ${granted ? "auth-granted" : ""}`}
+            role="dialog"
+            aria-modal
+            aria-labelledby="api-key-title"
+          >
             <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/15 ring-1 ring-cyan-500/30">
-                <KeyRound className="h-5 w-5 text-cyan-300" aria-hidden />
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-500/20 ring-1 ring-red-400/40">
+                <Shield className="h-5 w-5 text-red-200" aria-hidden />
               </div>
               <div>
-                <h2 id="api-key-title" className="text-lg font-bold text-white">
-                  הזן API Key לגישה למערכת
+                <h2 id="api-key-title" className="command-text text-lg font-bold text-white">
+                  אישור גישה — חדר מצב
                 </h2>
-                <p className="text-xs text-slate-400">המפתח נשמר מקומית בדפדפן בלבד</p>
+                <p className="text-xs text-red-200/70">הזן מפתח API מאושר. נשמר מקומית בלבד.</p>
               </div>
             </div>
 
@@ -116,9 +136,9 @@ export function ApiKeyGate({ children }: ApiKeyGateProps) {
             ) : null}
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-              <button type="button" className="btn-primary flex-1" disabled={saving || !value.trim()} onClick={() => void save()}>
+              <button type="button" className="btn-primary flex-1" disabled={saving} onClick={() => void save()}>
                 <Shield className="h-4 w-4" aria-hidden />
-                {saving ? "טוען…" : "שמור"}
+                {saving ? "טוען…" : "אשר גישה"}
               </button>
               <button type="button" className="btn-secondary flex-1" onClick={skip}>
                 המשך ללא מפתח

@@ -99,6 +99,12 @@ export function DispatchPanel({ prefill, onToast }: DispatchPanelProps) {
   }, [search]);
 
   const submit = async () => {
+    if (!voterName.trim()) {
+      setError("הזן שם בוחר לפני שיגור");
+      onToast("הזן שם בוחר לפני שיגור", "err");
+      return;
+    }
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -221,10 +227,14 @@ export function DispatchPanel({ prefill, onToast }: DispatchPanelProps) {
             </select>
           </div>
           {error ? <ErrorState message={error} onRetry={() => void submit()} /> : null}
-          <button type="button" className="btn-primary w-full" disabled={submitting || !voterName.trim()} onClick={() => void submit()}>
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            {submitting ? "טוען…" : "שלח למשימה"}
-          </button>
+        <button
+          type="button"
+          className="btn-primary mt-4 w-full"
+          onClick={() => void submit()}
+        >
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          {submitting ? "טוען…" : "שלח למשימה"}
+        </button>
         </div>
       </section>
     </div>
