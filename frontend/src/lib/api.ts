@@ -1,4 +1,18 @@
 import type {
+  BatchMessagesResult,
+  EmergencyDispatchResult,
+  GeneratedMessageBundle,
+  InfluenceHub,
+  InfluenceMapGraph,
+  InfluenceScanResult,
+  InfluenceScoreResult,
+  MessageHistoryItem,
+  SentimentDashboard,
+  SentimentTrackResult,
+  SentimentTrendResult,
+  WarRoomOverview,
+} from "@/lib/features";
+import type {
   AlertsResponse,
   AnalysisResult,
   Briefing,
@@ -525,6 +539,149 @@ export const api = {
       status: result.status || "queued",
     };
   },
+
+  getWarRoomOverview: () => request<WarRoomOverview>("/api/war-room/overview"),
+
+  emergencyDispatch: (payload: {
+    mode: "TOP_SWING" | "AT_RISK_BLITZ" | "NEIGHBORHOOD_FOCUS";
+    neighborhood?: string;
+    count?: number;
+  }) =>
+    request<EmergencyDispatchResult>("/api/war-room/emergency-dispatch", {
+      method: "POST",
+      body: {
+        mode: payload.mode,
+        neighborhood: payload.neighborhood ?? "all",
+        count: payload.count ?? 50,
+      },
+    }),
+
+  generateMessage: (voterId: string) =>
+    request<GeneratedMessageBundle>("/api/intel/messages/generate", {
+      method: "POST",
+      body: { voter_id: voterId },
+    }),
+
+  batchGenerateMessages: (payload: { voter_ids: string[]; topic?: string; max_count?: number }) =>
+    request<BatchMessagesResult>("/api/intel/messages/batch-generate", {
+      method: "POST",
+      body: payload,
+    }),
+
+  getMessageTopics: () =>
+    request<{ topics: string[]; coverage: Record<string, number> }>("/api/intel/messages/topics"),
+
+  getMessageHistory: (voterId: string) =>
+    request<{ voter_id: string; messages: MessageHistoryItem[] }>(
+      `/api/intel/messages/history/${encodeURIComponent(voterId)}`,
+    ),
+
+  influenceScan: (payload?: { max_hubs?: number; neighborhoods?: string[] }) =>
+    request<InfluenceScanResult>("/api/intel/influence/scan", {
+      method: "POST",
+      body: payload ?? { max_hubs: 100, neighborhoods: ["all"] },
+    }),
+
+  influenceMap: (params?: { neighborhood?: string; depth?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.neighborhood) q.set("neighborhood", params.neighborhood);
+    if (params?.depth != null) q.set("depth", String(params.depth));
+    const qs = q.toString();
+    return request<InfluenceMapGraph>(`/api/influence/map${qs ? `?${qs}` : ""}`);
+  },
+
+  influenceScore: (voterId: string) =>
+    request<InfluenceScoreResult>("/api/intel/influence/influence-score", {
+      method: "POST",
+      body: { voter_id: voterId },
+    }),
+
+  targetHubs: (payload?: { top_n?: number; gotv_filter?: string }) =>
+    request<{ hubs: InfluenceHub[] }>("/api/intel/influence/target-hubs", {
+      method: "POST",
+      body: payload ?? { top_n: 10, gotv_filter: "SWING" },
+    }),
+
+  trackSentiment: (voterId: string, source: string) =>
+    request<SentimentTrackResult>("/api/intel/sentiment/track", {
+      method: "POST",
+      body: { voter_id: voterId, source },
+    }),
+
+  sentimentDashboard: (neighborhood?: string) => {
+    const q = neighborhood ? `?neighborhood=${encodeURIComponent(neighborhood)}` : "";
+    return request<SentimentDashboard>("/api/intel/sentiment/dashboard" + q);
+  },
+
+  subscribeSentimentAlert: (payload: { webhook_url?: string; threshold?: number; scope?: string }) =>
+    request<{ subscription_id: string; active: boolean }>("/api/intel/sentiment/alert/subscribe", {
+      method: "POST",
+      body: payload,
+    }),
+
+  sentimentTrend: (voterId: string, days?: number) => {
+    const q = new URLSearchParams({ voter_id: voterId });
+    if (days != null) q.set("days", String(days));
+    return request<SentimentTrendResult>(`/api/intel/sentiment/trend?${q}`);
+  },
+
+  whatsappGenerate: (voterId: string) =>
+    request<import("@/lib/types/features56").WhatsAppGenerateResult>("/api/intel/whatsapp/generate", {
+      method: "POST",
+      body: { voter_id: voterId },
+    }),
+
+  whatsappBatchGenerate: (payload: { voter_ids?: string[]; campaign_topic?: string; max_count?: number }) =>
+    request<{
+      generated: number;
+      avg_personalization_score: number;
+      export_csv_url: string;
+      messages: import("@/lib/types/features56").WhatsAppGenerateResult[];
+    }>("/api/intel/whatsapp/batch-generate", { method: "POST", body: payload }),
+
+  whatsappHistory: (voterId: string) =>
+    request<{ voter_id: string; messages: Array<{ id: string; variant: string; text: string; created_at?: string }> }>(
+      `/api/intel/whatsapp/history/${encodeURIComponent(voterId)}`,
+    ),
+
+  whatsappSchedule: (payload: { voter_id: string; message_variant: string; send_at: string }) =>
+    request<{ scheduled: boolean; schedule_id: string; send_at: string; status: string }>(
+      "/api/intel/whatsapp/schedule",
+      { method: "POST", body: payload },
+    ),
+
+  whatsappExportCsv: async (path: string) => {
+    const apiKey = getApiKey();
+    const headers: Record<string, string> = {};
+    if (apiKey) headers["X-API-Key"] = apiKey;
+    const res = await fetch(`${API_BASE}${path}`, { headers, cache: "no-store" });
+    if (!res.ok) throw new ApiError("export", "ייצוא CSV נכשל", res.status);
+    return res.blob();
+  },
+
+  predictTurnout: (payload?: {
+    scope?: string;
+    neighborhoods?: string[];
+    confidence_level?: number;
+  }) =>
+    request<import("@/lib/types/features56").TurnoutPredictionResult>("/api/intel/predict/turnout", {
+      method: "POST",
+      body: payload ?? { scope: "city", confidence_level: 0.95 },
+    }),
+
+  predictTrend: (days = 30) =>
+    request<import("@/lib/types/features56").TurnoutTrendResult>(`/api/intel/predict/trend?days=${days}`),
+
+  predictWhatIf: (payload: { scenario: string; target_count: number; target_neighborhood?: string }) =>
+    request<import("@/lib/types/features56").WhatIfResult>("/api/intel/predict/what-if", {
+      method: "POST",
+      body: payload,
+    }),
+
+  predictComparative: (electionType = "municipal") =>
+    request<{ elections: Record<string, { predicted_turnout: number; historical: number; delta: number }>; recommendation: string }>(
+      `/api/intel/predict/comparative?election_type=${encodeURIComponent(electionType)}`,
+    ),
 };
 
 // Backwards-compatible named exports used by older components

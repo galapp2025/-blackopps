@@ -2,20 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crosshair, Database, KeyRound, LayoutDashboard, Map } from "lucide-react";
+import { Crosshair, Database, KeyRound, LayoutDashboard, Map, MessageSquare, Network, Radio, TrendingUp } from "lucide-react";
 
 import { openApiKeySettings } from "@/components/ApiKeyGate";
 import { BackendStatus } from "@/components/BackendStatus";
 
 type AppShellProps = {
   children: React.ReactNode;
-  active?: "dashboard" | "voters" | "roadmap";
+  active?: "dashboard" | "voters" | "roadmap" | "war-room" | "messages" | "influence" | "sentiment";
   title?: string;
   subtitle?: string;
 };
 
 const navItems = [
-  { href: "/", id: "dashboard" as const, label: "חמ״ל", icon: LayoutDashboard },
+  { href: "/war-room", id: "war-room" as const, label: "חמ״ל", icon: Radio },
+  { href: "/", id: "dashboard" as const, label: "פיקוד", icon: LayoutDashboard },
+  { href: "/messages", id: "messages" as const, label: "מסרים", icon: MessageSquare },
+  { href: "/influence", id: "influence" as const, label: "השפעה", icon: Network },
+  { href: "/sentiment", id: "sentiment" as const, label: "סנטימנט", icon: TrendingUp },
   { href: "/voters", id: "voters" as const, label: "בוחרים", icon: Database },
   { href: "/roadmap", id: "roadmap" as const, label: "ארסנל", icon: Map },
 ];
@@ -24,7 +28,19 @@ export function AppShell({ children, active, title, subtitle }: AppShellProps) {
   const pathname = usePathname();
   const current =
     active ??
-    (pathname.startsWith("/voters") ? "voters" : pathname.startsWith("/roadmap") ? "roadmap" : "dashboard");
+    (pathname.startsWith("/war-room")
+      ? "war-room"
+      : pathname.startsWith("/messages")
+        ? "messages"
+        : pathname.startsWith("/influence")
+          ? "influence"
+          : pathname.startsWith("/sentiment")
+            ? "sentiment"
+            : pathname.startsWith("/voters")
+              ? "voters"
+              : pathname.startsWith("/roadmap")
+                ? "roadmap"
+                : "dashboard");
 
   return (
     <div className="mesh-bg flex min-h-screen flex-col text-slate-100">
