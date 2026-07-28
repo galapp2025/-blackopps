@@ -625,10 +625,10 @@ export const api = {
     return request<SentimentTrendResult>(`/api/intel/sentiment/trend?${q}`);
   },
 
-  whatsappGenerate: (voterId: string) =>
+  whatsappGenerate: (voterId: string, opts?: { campaign_topic?: string; tone_hint?: string }) =>
     request<import("@/lib/types/features56").WhatsAppGenerateResult>("/api/intel/whatsapp/generate", {
       method: "POST",
-      body: { voter_id: voterId },
+      body: { voter_id: voterId, campaign_topic: opts?.campaign_topic, tone_hint: opts?.tone_hint },
     }),
 
   whatsappBatchGenerate: (payload: { voter_ids?: string[]; campaign_topic?: string; max_count?: number }) =>
