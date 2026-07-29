@@ -155,7 +155,7 @@ export function VoterDeepDive() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
         <StatCard label="סה״כ בוחרים" value={total.toLocaleString("he-IL")} icon="👥" />
         <StatCard label="SWING בעמוד" value={counts.SWING} icon="⚖️" color="text-amber-400" />
         <StatCard
@@ -171,13 +171,13 @@ export function VoterDeepDive() {
         />
       </div>
 
-      <div className="flex flex-col gap-4 rounded-2xl border border-white/[0.06] bg-[var(--bg-card)] p-6 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-[var(--bg-card)] p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="חיפוש לפי שם, שכונה או מזהה…"
-          className="input min-h-12 flex-1 text-base"
+          className="input min-h-12 w-full flex-1 text-base"
           aria-label="חיפוש בוחרים"
         />
         <div className="flex flex-wrap gap-2">
@@ -186,7 +186,7 @@ export function VoterDeepDive() {
               key={f.id || "all"}
               type="button"
               onClick={() => setGotv(f.id)}
-              className={`min-h-12 rounded-xl px-4 text-sm font-medium transition ${
+              className={`min-h-11 rounded-xl px-4 text-sm font-medium transition active:scale-[0.98] ${
                 gotv === f.id
                   ? "bg-[var(--brand-blue)] text-white"
                   : "bg-white/5 text-[var(--text-secondary)] hover:bg-white/10"
@@ -210,93 +210,150 @@ export function VoterDeepDive() {
           action={{ label: "נקה סינון", onClick: () => { setSearch(""); setGotv(""); } }}
         />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-white/[0.06] bg-[var(--bg-card)]">
-          <table className="w-full min-w-[720px] text-right text-sm">
-            <thead>
-              <tr className="border-b border-white/[0.06] text-[var(--text-muted)]">
-                <th className="cursor-pointer p-4 font-medium" onClick={() => toggleSort("name")}>
-                  שם
-                </th>
-                <th
-                  className="cursor-pointer p-4 font-medium"
-                  onClick={() => toggleSort("neighborhood")}
-                >
-                  שכונה
-                </th>
-                <th className="cursor-pointer p-4 font-medium" onClick={() => toggleSort("gotv")}>
-                  GOTV
-                </th>
-                <th className="p-4 font-medium">ציון מודיעין</th>
-                <th className="p-4 font-medium">דאגה עיקרית</th>
-                <th className="p-4 font-medium">פעולות</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((v) => {
-                const id = String(v.id);
-                const g = String(v.gotv_category || "").toUpperCase();
-                const score = intelScores[id];
-                return (
-                  <tr
-                    key={id}
-                    className="cursor-pointer border-b border-white/[0.04] transition hover:bg-white/[0.03]"
-                    onClick={() => setSelectedId(id)}
+        <>
+          {/* Desktop table */}
+          <div className="hidden overflow-x-auto rounded-2xl border border-white/[0.06] bg-[var(--bg-card)] md:block">
+            <table className="w-full text-right text-sm">
+              <thead>
+                <tr className="border-b border-white/[0.06] text-[var(--text-muted)]">
+                  <th className="cursor-pointer p-4 font-medium" onClick={() => toggleSort("name")}>
+                    שם
+                  </th>
+                  <th
+                    className="cursor-pointer p-4 font-medium"
+                    onClick={() => toggleSort("neighborhood")}
                   >
-                    <td className="p-4 font-medium text-white">
-                      {v.first_name} {v.last_name}
-                    </td>
-                    <td className="p-4 text-[var(--text-secondary)]">{v.neighborhood || "—"}</td>
-                    <td className="p-4">
-                      <span
-                        className={`rounded-lg px-2.5 py-1 text-xs font-medium ${GOTV_COLORS[g] || GOTV_COLORS.SWING}`}
-                      >
-                        {g || "—"}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      {typeof score === "number" ? (
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-20 overflow-hidden rounded-full bg-white/10">
-                            <div
-                              className="h-full bg-[var(--brand-gold)]"
-                              style={{ width: `${score}%` }}
-                            />
+                    שכונה
+                  </th>
+                  <th className="cursor-pointer p-4 font-medium" onClick={() => toggleSort("gotv")}>
+                    GOTV
+                  </th>
+                  <th className="p-4 font-medium">ציון מודיעין</th>
+                  <th className="p-4 font-medium">דאגה עיקרית</th>
+                  <th className="p-4 font-medium">פעולות</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((v) => {
+                  const id = String(v.id);
+                  const g = String(v.gotv_category || "").toUpperCase();
+                  const score = intelScores[id];
+                  return (
+                    <tr
+                      key={id}
+                      className="cursor-pointer border-b border-white/[0.04] transition hover:bg-white/[0.03]"
+                      onClick={() => setSelectedId(id)}
+                    >
+                      <td className="p-4 font-medium text-white">
+                        {v.first_name} {v.last_name}
+                      </td>
+                      <td className="p-4 text-[var(--text-secondary)]">{v.neighborhood || "—"}</td>
+                      <td className="p-4">
+                        <span
+                          className={`rounded-lg px-2.5 py-1 text-xs font-medium ${GOTV_COLORS[g] || GOTV_COLORS.SWING}`}
+                        >
+                          {g || "—"}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        {typeof score === "number" ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-20 overflow-hidden rounded-full bg-white/10">
+                              <div
+                                className="h-full bg-[var(--brand-gold)]"
+                                style={{ width: `${score}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-[var(--text-muted)]">{score}</span>
                           </div>
-                          <span className="text-xs text-[var(--text-muted)]">{score}</span>
+                        ) : (
+                          <span className="text-[var(--text-muted)]">—</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-[var(--text-secondary)]">
+                        {summary?.top_concerns?.[0] || "חינוך"}
+                      </td>
+                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="ghost" onClick={() => setSelectedId(id)}>
+                            צפה
+                          </Button>
+                          <Link href={`/writer?voter_id=${encodeURIComponent(id)}`}>
+                            <Button size="sm" variant="outline">
+                              צור מסר
+                            </Button>
+                          </Link>
+                          <Link href={`/whatsapp?voter_id=${encodeURIComponent(id)}`}>
+                            <Button size="sm" variant="gold">
+                              וואטסאפ
+                            </Button>
+                          </Link>
+                          <Button size="sm" variant="primary" onClick={() => void buildIntel(id)}>
+                            מודיעין
+                          </Button>
                         </div>
-                      ) : (
-                        <span className="text-[var(--text-muted)]">—</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-[var(--text-secondary)]">
-                      {summary?.top_concerns?.[0] || "חינוך"}
-                    </td>
-                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex flex-wrap gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => setSelectedId(id)}>
-                          צפה
-                        </Button>
-                        <Link href={`/writer?voter_id=${encodeURIComponent(id)}`}>
-                          <Button size="sm" variant="outline">
-                            צור מסר
-                          </Button>
-                        </Link>
-                        <Link href={`/whatsapp?voter_id=${encodeURIComponent(id)}`}>
-                          <Button size="sm" variant="gold">
-                            וואטסאפ
-                          </Button>
-                        </Link>
-                        <Button size="sm" variant="primary" onClick={() => void buildIntel(id)}>
-                          מודיעין
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="space-y-3 md:hidden">
+            {sorted.map((v) => {
+              const id = String(v.id);
+              const g = String(v.gotv_category || "").toUpperCase();
+              const score = intelScores[id];
+              return (
+                <div
+                  key={id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedId(id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") setSelectedId(id);
+                  }}
+                  className="rounded-2xl border border-white/[0.06] bg-[var(--bg-card)] p-4 active:scale-[0.98]"
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-base font-bold text-white">
+                      {v.first_name} {v.last_name}
+                    </span>
+                    <span
+                      className={`rounded-lg px-2.5 py-1 text-xs font-medium ${GOTV_COLORS[g] || GOTV_COLORS.SWING}`}
+                    >
+                      {g || "—"}
+                    </span>
+                  </div>
+                  <div className="text-sm text-[var(--text-muted)]">
+                    {v.neighborhood || "—"} · {summary?.top_concerns?.[0] || "חינוך"}
+                    {typeof score === "number" ? ` · מודיעין ${score}` : ""}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedId(id)}>
+                      צפה
+                    </Button>
+                    <Link href={`/writer?voter_id=${encodeURIComponent(id)}`}>
+                      <Button size="sm" variant="outline">
+                        מסר
+                      </Button>
+                    </Link>
+                    <Link href={`/whatsapp?voter_id=${encodeURIComponent(id)}`}>
+                      <Button size="sm" variant="gold">
+                        וואטסאפ
+                      </Button>
+                    </Link>
+                    <Button size="sm" variant="primary" onClick={() => void buildIntel(id)}>
+                      מודיעין
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       <div className="flex items-center justify-between gap-4">

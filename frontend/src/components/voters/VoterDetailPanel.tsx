@@ -93,7 +93,7 @@ export function VoterDetailPanel({ voterId, onClose }: Props) {
 
   return (
     <div
-      className="fixed left-0 top-0 z-50 flex h-full w-full max-w-[520px] flex-col overflow-y-auto border-l border-white/[0.06] bg-[var(--bg-secondary)] p-6 shadow-2xl"
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-[var(--bg-primary)] p-4 shadow-2xl sm:p-6 lg:inset-auto lg:left-0 lg:top-16 lg:h-[calc(100vh-4rem)] lg:w-[520px] lg:max-w-none lg:border-l lg:border-white/[0.06] lg:bg-[var(--bg-secondary)]"
       role="dialog"
       aria-label="כרטיס מודיעין בוחר"
     >

@@ -1,40 +1,29 @@
 # BlackOpps v5.0.0 — CLIENT STATUS REPORT (FINAL V2)
 
 **תאריך:** 2026-07-29  
-**סטטוס:** מוכן לבדיקות שטח של הלקוח
+**סטטוס:** מוכן לבדיקות שטח
 
-## מה תוקן (4 בעיות הלקוח)
+## תיקוני לקוח
 
 | # | בעיה | תיקון |
 |---|------|--------|
-| 1 | UI/UX לא נוח | Comfort-First: צבעים חמים, כפתורים ≥48px, ריווח נדיב, Heebo קריא |
-| 2 | אין מודיעין פרטני | `voter_intel_deep` + מסך `/voters` עם DetailPanel |
-| 3 | כפתורים מתים | כל פעולה ב-`/voters` מחוברת ל-API / ניווט אמיתי |
-| 4 | לא מוכן ללקוח | Loading / Error / Empty + זרימות E2E |
+| 1 | UI/UX + sidebar | Comfort UI + **Top Sticky Navbar** (ללא sidebar אתר) |
+| 2 | מודיעין שטחי | Deep Intel `/voters` + 4 endpoints |
+| 3 | כפתורים מתים | כל פעולה מחוברת |
+| 4 | לא מוכן ללקוח | Loading/Error/Empty + E2E |
+| 5 | לא מותאם למובייל | Mobile-first 320→1920, hamburger, cards |
+
+## ניווט
+
+- Desktop ≥1024px: סרגל עליון sticky עם כל הקישורים
+- Mobile/Tablet: המבורגר + slide-out מימין
+- פעמון → `/war-room` · אווטאר → הגדרות API
 
 ## URLs
 
-- Frontend: https://blackopps.vercel.app
-- Backend: https://blackopps-api-production.up.railway.app
-- Health: `GET /health` → modules כולל `voter_intel_deep`
+- https://blackopps.vercel.app
+- https://blackopps-api-production.up.railway.app/health
 
-## Deep Intel API
+## Deep Intel
 
-- `POST /api/intel/voter/deep-profile` `{ "voter_id": "3306" }`
-- `GET /api/intel/voter/deep-profile/{voter_id}`
-- `POST /api/intel/voter/batch-deep`
-- `GET /api/intel/voter/intel-summary?neighborhood=all&gotv=SWING`
-
-> מזהי בוחר אמיתיים: `3306`, `3225` (לא `PT-00042`)
-
-## מסכים (כולם 200)
-
-`/` · `/war-room` · `/voters` · `/messages` · `/influence` · `/sentiment` · `/whatsapp` · `/writer` · `/dossier` · `/trends` · `/prediction`
-
-## זרימת בוקר מומלצת
-
-1. פתח `/` או `/voters`
-2. סנן SWING + שכונה
-3. לחץ בוחר → מודיעין פרטני
-4. "צור מסר" → `/writer?voter_id=…`
-5. "וואטסאפ" → `/whatsapp?voter_id=…`
+`POST /api/intel/voter/deep-profile` עם מזהה אמיתי (למשל `3306`)

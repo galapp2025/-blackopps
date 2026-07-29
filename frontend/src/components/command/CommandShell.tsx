@@ -4,26 +4,30 @@ import type { ReactNode } from "react";
 
 type CommandShellProps = {
   topBar: ReactNode;
-  sidebar: ReactNode;
-  intelPanel: ReactNode;
+  /** Optional — prefer horizontal view switcher inside children on all breakpoints */
+  sidebar?: ReactNode;
+  intelPanel?: ReactNode;
   children: ReactNode;
   dropOverlay?: ReactNode;
 };
 
-export function CommandShell({ topBar, sidebar, intelPanel, children, dropOverlay }: CommandShellProps) {
+/** Full-width command canvas under sticky TopNavbar — no site sidebar. */
+export function CommandShell({ topBar, intelPanel, children, dropOverlay }: CommandShellProps) {
   return (
-    <div className="command-center mesh-bg flex min-h-screen flex-col text-slate-100">
+    <div className="command-center w-full text-[var(--text-primary)]" dir="rtl">
       {topBar}
-      <div className="mx-auto flex w-full max-w-[100rem] flex-1 gap-0 lg:gap-3 px-2 pb-4 pt-2 sm:px-4">
-        <aside className="hidden w-14 shrink-0 lg:block xl:w-16" aria-label="ניווט מבצעי">
-          {sidebar}
-        </aside>
+      <div className="flex w-full flex-1 flex-col gap-4 xl:flex-row">
         <main role="main" aria-label="לוח פיקוד" className="min-w-0 flex-1">
           {children}
         </main>
-        <aside className="hidden w-72 shrink-0 xl:block" aria-label="פאנל מודיעין">
-          {intelPanel}
-        </aside>
+        {intelPanel ? (
+          <aside
+            className="w-full shrink-0 xl:w-72"
+            aria-label="פאנל מודיעין"
+          >
+            {intelPanel}
+          </aside>
+        ) : null}
       </div>
       {dropOverlay}
     </div>

@@ -453,7 +453,6 @@ function DashboardInner() {
             onOpenPalette={() => setPaletteOpen(true)}
           />
         }
-        sidebar={<CommandSidebar view={view} onChange={setView} />}
         intelPanel={
           <IntelPanel
             flash={intel.flash}
@@ -465,7 +464,7 @@ function DashboardInner() {
         }
         dropOverlay={<GlobalDropOverlay active onFile={(f) => void handleImport(f)} />}
       >
-        <div className="mb-3 lg:hidden">
+        <div className="mb-3">
           <CommandSidebar view={view} onChange={setView} horizontal />
         </div>
 
