@@ -2,49 +2,80 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crosshair, Database, KeyRound, LayoutDashboard, Map, MessageSquare, Network, Radio, TrendingUp } from "lucide-react";
+import {
+  BarChart3,
+  Crosshair,
+  Database,
+  KeyRound,
+  LayoutDashboard,
+  Map,
+  MessageCircle,
+  MessageSquare,
+  Network,
+  PenLine,
+  Radio,
+  TrendingUp,
+} from "lucide-react";
 
 import { openApiKeySettings } from "@/components/ApiKeyGate";
 import { BackendStatus } from "@/components/BackendStatus";
 
+export type ShellActive =
+  | "dashboard"
+  | "voters"
+  | "roadmap"
+  | "war-room"
+  | "messages"
+  | "whatsapp"
+  | "prediction"
+  | "influence"
+  | "sentiment"
+  | "writer";
+
 type AppShellProps = {
   children: React.ReactNode;
-  active?: "dashboard" | "voters" | "roadmap" | "war-room" | "messages" | "influence" | "sentiment";
+  active?: ShellActive;
   title?: string;
   subtitle?: string;
 };
 
-const navItems = [
-  { href: "/war-room", id: "war-room" as const, label: "חמ״ל", icon: Radio },
-  { href: "/", id: "dashboard" as const, label: "פיקוד", icon: LayoutDashboard },
-  { href: "/messages", id: "messages" as const, label: "מסרים", icon: MessageSquare },
-  { href: "/influence", id: "influence" as const, label: "השפעה", icon: Network },
-  { href: "/sentiment", id: "sentiment" as const, label: "סנטימנט", icon: TrendingUp },
-  { href: "/voters", id: "voters" as const, label: "בוחרים", icon: Database },
-  { href: "/roadmap", id: "roadmap" as const, label: "ארסנל", icon: Map },
+const navItems: { href: string; id: ShellActive; label: string; icon: typeof Radio }[] = [
+  { href: "/war-room", id: "war-room", label: "חמ״ל", icon: Radio },
+  { href: "/messages", id: "messages", label: "מסרים", icon: MessageSquare },
+  { href: "/whatsapp", id: "whatsapp", label: "וואטסאפ", icon: MessageCircle },
+  { href: "/writer", id: "writer", label: "כותב", icon: PenLine },
+  { href: "/influence", id: "influence", label: "השפעה", icon: Network },
+  { href: "/sentiment", id: "sentiment", label: "סנטימנט", icon: TrendingUp },
+  { href: "/prediction", id: "prediction", label: "תחזית", icon: BarChart3 },
+  { href: "/", id: "dashboard", label: "פיקוד", icon: LayoutDashboard },
+  { href: "/voters", id: "voters", label: "בוחרים", icon: Database },
+  { href: "/roadmap", id: "roadmap", label: "ארסנל", icon: Map },
 ];
+
+function resolveActive(pathname: string): ShellActive {
+  if (pathname.startsWith("/war-room")) return "war-room";
+  if (pathname.startsWith("/messages")) return "messages";
+  if (pathname.startsWith("/whatsapp")) return "whatsapp";
+  if (pathname.startsWith("/writer")) return "writer";
+  if (pathname.startsWith("/prediction")) return "prediction";
+  if (pathname.startsWith("/influence")) return "influence";
+  if (pathname.startsWith("/sentiment")) return "sentiment";
+  if (pathname.startsWith("/voters")) return "voters";
+  if (pathname.startsWith("/roadmap")) return "roadmap";
+  return "dashboard";
+}
 
 export function AppShell({ children, active, title, subtitle }: AppShellProps) {
   const pathname = usePathname();
-  const current =
-    active ??
-    (pathname.startsWith("/war-room")
-      ? "war-room"
-      : pathname.startsWith("/messages")
-        ? "messages"
-        : pathname.startsWith("/influence")
-          ? "influence"
-          : pathname.startsWith("/sentiment")
-            ? "sentiment"
-            : pathname.startsWith("/voters")
-              ? "voters"
-              : pathname.startsWith("/roadmap")
-                ? "roadmap"
-                : "dashboard");
+  const current = active ?? resolveActive(pathname);
 
   return (
     <div className="mesh-bg flex min-h-screen flex-col text-slate-100">
-      <header role="banner" aria-label="כותרת האפליקציה" className="sticky top-0 z-50 border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-2xl backdrop-saturate-150">
+      <header
+        role="banner"
+        aria-label="כותרת האפליקציה"
+        className="sticky top-0 z-50 border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-2xl backdrop-saturate-150"
+      >
         <div className="mx-auto max-w-[90rem] px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center justify-between gap-4">
@@ -72,12 +103,16 @@ export function AppShell({ children, active, title, subtitle }: AppShellProps) {
                 >
                   <KeyRound className="h-4 w-4" />
                 </button>
-                <nav role="navigation" className="flex items-center gap-1 rounded-2xl border border-white/[0.06] bg-slate-900/50 p-1" aria-label="ניווט ראשי">
-                  {navItems.map(({ href, id, label, icon: Icon }) => (
+                <nav
+                  role="navigation"
+                  className="flex max-w-[70vw] items-center gap-1 overflow-x-auto rounded-2xl border border-white/[0.06] bg-slate-900/50 p-1"
+                  aria-label="ניווט ראשי"
+                >
+                  {navItems.slice(0, 6).map(({ href, id, label, icon: Icon }) => (
                     <Link
                       key={id}
                       href={href}
-                      className={`focus-ring flex h-9 w-9 items-center justify-center rounded-xl transition ${
+                      className={`focus-ring flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${
                         current === id ? "bg-red-500/15 text-white ring-1 ring-red-500/25" : "text-slate-400"
                       }`}
                       aria-label={label}
@@ -93,14 +128,14 @@ export function AppShell({ children, active, title, subtitle }: AppShellProps) {
             <div className="hidden items-center gap-2 lg:flex">
               <nav
                 role="navigation"
-                className="flex items-center gap-1 rounded-2xl border border-white/[0.06] bg-slate-900/40 p-1"
+                className="flex max-w-[52rem] items-center gap-1 overflow-x-auto rounded-2xl border border-white/[0.06] bg-slate-900/40 p-1"
                 aria-label="ניווט ראשי"
               >
                 {navItems.map(({ href, id, label, icon: Icon }) => (
                   <Link
-                    key={id}
+                    key={`${id}-${href}`}
                     href={href}
-                    className={`focus-ring inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition ${
+                    className={`focus-ring inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition ${
                       current === id
                         ? "bg-white/[0.08] text-white shadow-sm ring-1 ring-white/10"
                         : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"

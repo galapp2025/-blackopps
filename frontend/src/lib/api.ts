@@ -682,6 +682,222 @@ export const api = {
     request<{ elections: Record<string, { predicted_turnout: number; historical: number; delta: number }>; recommendation: string }>(
       `/api/intel/predict/comparative?election_type=${encodeURIComponent(electionType)}`,
     ),
+
+  psychoProfile: (voterId: string) =>
+    request<import("@/lib/types/features78").PsychoProfileResult>("/api/intel/psycho/profile", {
+      method: "POST",
+      body: { voter_id: voterId },
+    }),
+
+  getPsychoProfile: (voterId: string) =>
+    request<import("@/lib/types/features78").PsychoProfileResult>(
+      `/api/intel/psycho/profile/${encodeURIComponent(voterId)}`,
+    ),
+
+  psychoBatchProfile: (payload: { voter_ids?: string[]; max_count?: number }) =>
+    request<{ profiled: number; avg_confidence: number; profiles: import("@/lib/types/features78").PsychoProfileResult[] }>(
+      "/api/intel/psycho/batch-profile",
+      { method: "POST", body: payload },
+    ),
+
+  psychoInsights: (neighborhood = "all") =>
+    request<{
+      overall: Record<string, unknown>;
+      by_neighborhood: Array<Record<string, unknown>>;
+      persuasion_playbook: Array<Record<string, unknown>>;
+    }>(`/api/intel/psycho/insights?neighborhood=${encodeURIComponent(neighborhood)}`),
+
+  psychoSegments: (criteria: Record<string, unknown>) =>
+    request<{ segment_size: number; profiles: unknown[]; recommended_strategy: string }>(
+      "/api/intel/psycho/segments",
+      { method: "POST", body: { criteria } },
+    ),
+
+  writerGenerate: (voterId: string, opts?: { campaign_topic?: string; formats?: string[] }) =>
+    request<import("@/lib/types/features78").WriterGenerateResult>("/api/intel/writer/generate", {
+      method: "POST",
+      body: {
+        voter_id: voterId,
+        campaign_topic: opts?.campaign_topic ?? "חינוך",
+        formats: opts?.formats ?? ["all"],
+      },
+    }),
+
+  writerBatchGenerate: (payload: {
+    voter_ids?: string[];
+    campaign_topic?: string;
+    formats?: string[];
+    max_count?: number;
+  }) =>
+    request<{
+      generated: number;
+      campaign_topic: string;
+      campaign_id: string;
+      format_distribution: Record<string, number>;
+      content: import("@/lib/types/features78").WriterGenerateResult[];
+      avg_engagement_score: number;
+      export_json_url: string;
+      duration_ms: number;
+    }>("/api/intel/writer/batch-generate", { method: "POST", body: payload }),
+
+  writerHistory: (voterId: string) =>
+    request<{ voter_id: string; history: Array<{ id: string; format: string; text: string; created_at?: string }> }>(
+      `/api/intel/writer/history/${encodeURIComponent(voterId)}`,
+    ),
+
+  writerCompare: (voterId: string, campaignTopic = "חינוך") =>
+    request<import("@/lib/types/features78").WriterCompareResult>("/api/intel/writer/compare", {
+      method: "POST",
+      body: { voter_id: voterId, campaign_topic: campaignTopic },
+    }),
+
+  writerExportJson: async (pathOrCampaignId: string) => {
+    const apiKey = getApiKey();
+    const headers: Record<string, string> = {};
+    if (apiKey) headers["X-API-Key"] = apiKey;
+    const path = pathOrCampaignId.startsWith("/")
+      ? pathOrCampaignId
+      : `/api/intel/writer/export/campaign-${pathOrCampaignId}.json`;
+    const res = await fetch(`${API_BASE}${path}`, { headers, cache: "no-store" });
+    if (!res.ok) throw new ApiError("export", "ייצוא JSON נכשל", res.status);
+    return res.blob();
+  },
+
+  uploadDossier: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return request<Record<string, unknown> & { id: string; candidate_name: string }>("/api/dossier/upload", {
+      method: "POST",
+      body: fd,
+      isFormData: true,
+    });
+  },
+
+  listDossiers: (status = "active") =>
+    request<{
+      candidates: Array<{ id: string; candidate_name: string; party: string; role?: string; created_at?: string }>;
+      count: number;
+    }>(`/api/dossier/candidates?status=${encodeURIComponent(status)}`),
+
+  getDossier: (candidateId: string) =>
+    request<Record<string, unknown> & { id: string; candidate_name: string }>(
+      `/api/dossier/candidate/${encodeURIComponent(candidateId)}`,
+    ),
+
+  updateDossier: (candidateId: string, fields: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/api/dossier/candidate/${encodeURIComponent(candidateId)}`, {
+      method: "PUT",
+      body: fields,
+    }),
+
+  deleteDossier: (candidateId: string) =>
+    request<{ deleted: string; status: string }>(`/api/dossier/candidate/${encodeURIComponent(candidateId)}`, {
+      method: "DELETE",
+    }),
+
+  refreshDossier: (candidateId: string) =>
+    request<Record<string, unknown> & { id: string; candidate_name: string }>(
+      `/api/dossier/candidate/${encodeURIComponent(candidateId)}/refresh`,
+      { method: "POST" },
+    ),
+
+  trendsScan: (payload: {
+    candidate_id: string;
+    keywords?: string[];
+    platforms?: string[];
+    max_results?: number;
+    time_range_hours?: number;
+  }) =>
+    request<{
+      scan_id: string;
+      trends_detected: number;
+      candidate: string;
+      trends: Array<{
+        id: string;
+        title: string;
+        description?: string;
+        platform?: string;
+        classification: string;
+        impact_score: number;
+        reach_estimate?: number;
+        tags?: string[];
+      }>;
+      summary: Record<string, unknown>;
+      scan_duration_ms: number;
+    }>("/api/intel/trends/scan", { method: "POST", body: payload }),
+
+  trendsDashboard: (candidateId: string, hours = 24) =>
+    request<{
+      candidate: string;
+      overview: {
+        total_trends: number;
+        threats: number;
+        opportunities: number;
+        sentiment_timeline: Array<{ hour: string; sentiment: number }>;
+        sentiment_delta_24h: number;
+        top_narratives: string[];
+        urgent_alerts: number;
+      };
+      trends: Array<{
+        id: string;
+        title: string;
+        description?: string;
+        platform?: string;
+        classification: string;
+        impact_score: number;
+        reach_estimate?: number;
+        tags?: string[];
+      }>;
+      recommended_priority: string[];
+    }>(`/api/intel/trends/dashboard?candidate_id=${encodeURIComponent(candidateId)}&hours=${hours}`),
+
+  trendsRespond: (payload: {
+    trend_event_id: string;
+    candidate_id: string;
+    strategy_preference?: string;
+    target_voter_segment?: string;
+    generate_gotv_variants?: boolean;
+  }) =>
+    request<{
+      trend_event_id: string;
+      trend_title: string;
+      candidate: string;
+      responses: Record<
+        string,
+        {
+          headline: string;
+          full_text: string;
+          expected_impact: number;
+          risk_level: number;
+          target_audience: string;
+          gotv_variants?: Record<string, string> | null;
+        }
+      >;
+      recommendation: {
+        primary?: string;
+        reason?: string;
+        urgency?: string;
+        sequence?: string[];
+      };
+    }>("/api/intel/trends/respond", { method: "POST", body: payload }),
+
+  trendsHistory: (candidateId: string, days = 7, classification?: string) => {
+    const q = new URLSearchParams({ candidate_id: candidateId, days: String(days) });
+    if (classification) q.set("classification", classification);
+    return request<{ trends: unknown[]; count: number; period: string }>(`/api/intel/trends/history?${q}`);
+  },
+
+  trendsAlertSubscribe: (payload: {
+    candidate_id: string;
+    alert_types?: string[];
+    min_impact?: number;
+    webhook_url?: string;
+    email?: string;
+  }) =>
+    request<{ subscription_id: string; status: string; alert_types: string[]; min_impact: number }>(
+      "/api/intel/trends/alert/subscribe",
+      { method: "POST", body: payload },
+    ),
 };
 
 // Backwards-compatible named exports used by older components
