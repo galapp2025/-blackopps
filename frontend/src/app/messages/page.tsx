@@ -2,6 +2,7 @@
 
 import { Copy, Loader2, Sparkles, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { AppShell } from "@/components/AppShell";
 import { ErrorState } from "@/components/ErrorState";
@@ -21,9 +22,11 @@ type ChannelId = (typeof CHANNELS)[number]["id"];
 
 export default function MessagesPage() {
   const { push: toast } = useToast();
+  const searchParams = useSearchParams();
+  const initialVoterId = searchParams.get("voter_id") || "";
   const [voters, setVoters] = useState<Voter[]>([]);
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(initialVoterId);
   const [bundle, setBundle] = useState<GeneratedMessageBundle | null>(null);
   const [edited, setEdited] = useState<Record<string, string>>({});
   const [original, setOriginal] = useState<Record<string, string>>({});
@@ -42,12 +45,12 @@ export default function MessagesPage() {
         ]);
         setVoters(list.voters);
         setTopics(t.topics);
-        setSelectedId((prev) => prev || (list.voters[0] ? String(list.voters[0].id) : ""));
+        setSelectedId((prev) => prev || initialVoterId || (list.voters[0] ? String(list.voters[0].id) : ""));
       } catch (e) {
         setPageError(e instanceof ApiError ? e.message : "טעינת בוחרים נכשלה");
       }
     })();
-  }, [search]);
+  }, [search, initialVoterId]);
 
   const filtered = useMemo(() => {
     const q = search.trim();

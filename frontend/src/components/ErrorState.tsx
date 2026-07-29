@@ -2,22 +2,30 @@
 
 import { AlertTriangle } from "lucide-react";
 
+import { Button } from "@/components/ui/Button";
+
 type ErrorStateProps = {
-  message: string;
+  message?: string;
   onRetry?: () => void;
 };
 
-export function ErrorState({ message, onRetry }: ErrorStateProps) {
+export function ErrorState({
+  message = "משהו השתבש. נסה שוב.",
+  onRetry,
+}: ErrorStateProps) {
   return (
-    <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6" role="alert" data-error>
-      <div className="flex items-center gap-3">
-        <AlertTriangle className="h-5 w-5 shrink-0 text-red-400" aria-hidden />
-        <p className="text-sm text-red-300">{message}</p>
-      </div>
+    <div
+      className="flex flex-col items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/5 px-6 py-12 text-center"
+      role="alert"
+      data-error
+    >
+      <AlertTriangle className="mb-3 h-8 w-8 text-red-400" aria-hidden />
+      <h3 className="mb-2 text-xl font-bold text-white">אופס</h3>
+      <p className="mb-6 max-w-md text-base text-[var(--text-secondary)]">{message}</p>
       {onRetry ? (
-        <button type="button" className="btn-press mt-3 text-sm text-red-400 transition-colors hover:text-red-300" onClick={onRetry}>
+        <Button variant="gold" size="lg" onClick={onRetry}>
           נסה שוב
-        </button>
+        </Button>
       ) : null}
     </div>
   );

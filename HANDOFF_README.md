@@ -1,99 +1,44 @@
-# 🏛️ BlackOpps v5.0 — מדריך למנהל קמפיין
-## מערכת מודיעין בחירות — ליכוד פתח תקווה
+# BlackOpps — Handoff README (v5.0 FINAL V2)
 
----
+## ללקוח / קמפיינר
 
-## 🚀 התחברות
+1. היכנסו ל-https://blackopps.vercel.app
+2. אם מתבקש מפתח API — הזינו את המפתח שסופק
+3. התחילו מ-**בוחרים** (`/voters`) — זה מסך העבודה היומי
+4. לחצו על שורה → תיק מודיעין (רשתות, עמדות, טריגרים, איך לפנות)
+5. מתוך הפאנל: צרו מסר / וואטסאפ / הוסיפו לקמפיין
 
-**כתובת:** https://blackopps.vercel.app  
-**API:** https://blackopps-api-production.up.railway.app  
-**גישה:** מפתח API נשמר מקומית בדפדפן (מסך אישור גישה בפתיחה)
+## לצוות טכני
 
----
+| רכיב | נתיב |
+|------|------|
+| Backend | `predator-agent/backend/app/` |
+| Deep Intel | `intelligence/voter_intel_deep.py` |
+| Frontend | `election-enrichment-engine/frontend/` |
+| Voters UI | `components/voters/VoterDeepDive.tsx` |
 
-## 🧩 מה יש במערכת
+### Deploy
 
-### 📊 Dashboard ראשי — `/`
-- **OSINT:** מודיעין על בוחרים — רשתות, כתבות, אזכורים
-- **GOTV:** פילוח SAFE / LEANING / SWING / AT_RISK
-- **Opposition:** מעקב יריבים והשוואות
-- **Dispatch:** שליחת משימות וניהול תורים
+```bash
+# Backend
+cd predator-agent && git push origin main
+# אם Railway לא מתעדכן אוטומטית:
+railway up --detach
 
-### ⚔️ חמ״ל — `/war-room`
-מסך פיקוד — מפה, גרף GOTV חי, Heatmap, התראות דחופות.  
-**תסתכל על זה כל בוקר.**
+# Frontend
+cd election-enrichment-engine && git push origin main
+# Vercel auto-deploy
+```
 
-### ✍️ Message Studio — `/messages`
-יצירת מסרים מותאמים. ערוצים: וואטסאפ, SMS, שיחה, דלת־דלת.
+### Smoke
 
-### 🕸️ Influence Map — `/influence`
-מפת השפעה — hubs, clusters, ציוני השפעה. תעבוד דרך מובילי דעה.
+```bash
+curl -s https://blackopps-api-production.up.railway.app/health | python3 -m json.tool
+curl -s -X POST https://blackopps-api-production.up.railway.app/api/intel/voter/deep-profile \
+  -H 'Content-Type: application/json' -d '{"voter_id":"3306"}' | head -c 400
+```
 
-### 📈 Sentiment Monitor — `/sentiment`
-מעקב סנטימנט בזמן אמת והתראות על ירידה בשכונה.
+## הערות
 
-### 💬 WhatsApp Studio — `/whatsapp`
-יצירת הודעות וואטסאפ מותאמות, Preview, Schedule, Export.  
-שליחה בפועל — אחרי חיבור WhatsApp Business API.
-
-### 🔮 Prediction Center — `/prediction`
-חיזוי אחוז הצבעה, What-If, השוואה לבחירות קודמות.
-
-### 🧠 Multi-Format Writer — `/writer`
-כותב הודעות ב־4 פורמטים: פרטי, כללי, פייסבוק, X.  
-משתמש בפרופיל פסיכולוגי. **עברית אותנטית — סלנג, לא פורמלית.**
-
-### 📁 Candidate Dossier — `/dossier`
-העלאת תיק מועמד (PDF / Word / טקסט). המערכת מחלצת מצע, חוזקות, חולשות, יריבים ומסרים.
-
-### 🌐 Trend Intelligence — `/trends`
-סריקת טרנדים + 6 אסטרטגיות תגובה (הגנתי / התקפי / הפנייה / הומור / התעלמות / הגברה), עם וריאציות GOTV.
-
----
-
-## 🔄 זרימת עבודה מומלצת
-
-### בוקר — 08:00
-1. **חמ״ל** — סקור Dashboard והתראות  
-2. **Trends** — סרוק טרנדים, צור תגובות  
-3. **Sentiment** — בדוק שינויי סנטימנט  
-
-### צהריים — 12:00
-1. **Messages** — צור מסרים לקבוצה הבאה  
-2. **WhatsApp** — Schedule לערב  
-3. **Writer** — פוסטים לפייסבוק / X  
-
-### ערב — 18:00
-1. **Prediction** — עדכן תחזיות  
-2. **Influence** — בדוק hubs  
-3. **Dossier** — עדכן תיק לפי התפתחויות  
-
----
-
-## ⚡ טיפים
-
-1. **SWING קודם** — 340 בוחרים, ההשקעה הכי משתלמת.  
-2. **AT_RISK דחוף** — 189 בוחרים עלולים ללכת לאיבוד.  
-3. **Influence hubs** — 10 מובילי דעה מביאים עוד עשרות.  
-4. **Trends** — תגיב תוך 3 שעות.  
-5. **עברית** — אם זה נשמע פורמלי מדי, דווח על באג.  
-
----
-
-## 🧪 בוחרים לדוגמה לבדיקות
-
-| מזהה | שם | GOTV | שכונה |
-|------|-----|------|--------|
-| `3306` | אנדרי שרחמולין | SWING | אחד העם |
-| `3225` | אלון שמחי | SWING | הכינור |
-| `3093` | אלכסנדר שדלובסקי | SWING | השופטים |
-
----
-
-## 📞 תמיכה
-
-צוות טכני BlackOpps
-
----
-
-**בהצלחה. יאללה, מנצחים.** 🤜🤛
+- שליחת WhatsApp אמיתית דורשת WhatsApp Business API (כפתור Send מושבת עם הסבר)
+- נתוני דמה אסורים — הכל מ-DB / Groq עם fallback כנה על פערי מודיעין

@@ -36,6 +36,65 @@ import type {
 
 export type { Voter, CreateVoterInput, HealthResponse, PaginatedVoters };
 
+export type DeepVoterIntelResult = {
+  voter_id: string;
+  full_name: string;
+  neighborhood: string;
+  gotv_category: string;
+  intelligence_score?: number;
+  cached?: boolean;
+  refresh_scheduled?: boolean;
+  last_updated?: string;
+  intel: {
+    social_presence: {
+      primary_platforms: string[];
+      activity_level: string;
+      posting_style: string;
+      typical_content?: string;
+      tone?: string;
+      best_time_to_engage: string;
+    };
+    topic_stances: Record<
+      string,
+      { stance?: string; support_level?: number; pain_point?: string; argument?: string }
+    >;
+    behavioral_patterns: {
+      engagement_type?: string;
+      decision_style?: string;
+      trust_builders?: string[];
+      trust_breakers?: string[];
+      influence_triggers?: string[];
+    };
+    social_network: {
+      influencers: string[];
+      influencees: string[];
+      network_role?: string;
+      estimated_reach?: number;
+    };
+    communication_profile: {
+      best_tone: string;
+      best_channel: string;
+      opening_strategy: string;
+      words_to_use: string[];
+      words_to_avoid: string[];
+      ideal_message_length?: string;
+    };
+    triggers: {
+      anger: string;
+      pride: string;
+      fear: string;
+      hope: string;
+      vote_driver: string;
+    };
+    intelligence_assessment: {
+      confidence_score: number;
+      data_quality?: string;
+      intelligence_gaps: string[];
+      recommendation: string;
+    };
+  };
+};
+
 export const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL || "https://blackopps-api-production.up.railway.app"
 ).replace(/\/$/, "");
@@ -692,6 +751,37 @@ export const api = {
   getPsychoProfile: (voterId: string) =>
     request<import("@/lib/types/features78").PsychoProfileResult>(
       `/api/intel/psycho/profile/${encodeURIComponent(voterId)}`,
+    ),
+
+  deepVoterProfile: (voterId: string) =>
+    request<DeepVoterIntelResult>("/api/intel/voter/deep-profile", {
+      method: "POST",
+      body: { voter_id: voterId },
+    }),
+
+  getDeepVoterProfile: (voterId: string) =>
+    request<DeepVoterIntelResult>(`/api/intel/voter/deep-profile/${encodeURIComponent(voterId)}`),
+
+  batchDeepVoterProfiles: (payload: { voter_ids?: string[]; max_count?: number }) =>
+    request<{
+      generated: number;
+      failed: number;
+      profiles: DeepVoterIntelResult[];
+      errors: Array<{ voter_id: string; error: string }>;
+    }>("/api/intel/voter/batch-deep", { method: "POST", body: payload }),
+
+  voterIntelSummary: (neighborhood = "all", gotv = "all") =>
+    request<{
+      neighborhood: string;
+      gotv_filter: string;
+      total_analyzed: number;
+      avg_confidence: number;
+      top_concerns: string[];
+      top_triggers: string[];
+      communication_insight: string;
+      segment_breakdown: Record<string, number>;
+    }>(
+      `/api/intel/voter/intel-summary?neighborhood=${encodeURIComponent(neighborhood)}&gotv=${encodeURIComponent(gotv)}`,
     ),
 
   psychoBatchProfile: (payload: { voter_ids?: string[]; max_count?: number }) =>

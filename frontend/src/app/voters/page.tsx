@@ -1,14 +1,14 @@
 import { AppShell } from "@/components/AppShell";
-import VoterDashboard from "@/components/VoterDashboard";
+import { VoterDeepDive } from "@/components/voters/VoterDeepDive";
 
 export default function VotersPage() {
   return (
     <AppShell
       active="voters"
-      title="מאגר בוחרים והעשרה"
-      subtitle="PostgreSQL + 24 סוכני Celery — יצירה, צפייה והפעלת העשרה"
+      title="בוחרים — מודיעין פרטני"
+      subtitle="חיפוש, GOTV, תיק מודיעין עמוק לכל בוחר"
     >
-      <VoterDashboard />
+      <VoterDeepDive />
     </AppShell>
   );
 }

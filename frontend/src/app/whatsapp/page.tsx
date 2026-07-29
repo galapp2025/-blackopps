@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Calendar, Download, Loader2, MessageCircle, Send, Sparkles } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { MessageBubble } from "@/components/whatsapp/MessageBubble";
 import { PersonalizationBadge } from "@/components/whatsapp/PersonalizationBadge";
@@ -22,6 +23,8 @@ const VARIANT_LABELS: Record<VariantKey, string> = {
 
 export default function WhatsAppStudioPage() {
   const { push } = useToast();
+  const searchParams = useSearchParams();
+  const initialVoterId = searchParams.get("voter_id") || undefined;
   const [bundle, setBundle] = useState<WhatsAppGenerateResult | null>(null);
   const [active, setActive] = useState<VariantKey>("variant_a");
   const [edited, setEdited] = useState<Record<VariantKey, string | null>>({
@@ -143,7 +146,7 @@ export default function WhatsAppStudioPage() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr_280px]">
-        <VoterSelector onSelect={(v) => void loadForVoter(v)} />
+        <VoterSelector initialVoterId={initialVoterId} onSelect={(v) => void loadForVoter(v)} />
 
         <section className="glass-panel rounded-3xl p-5 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center gap-3">

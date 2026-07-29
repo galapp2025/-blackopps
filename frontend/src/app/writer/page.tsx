@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Columns2, Copy, Download, Loader2, PenLine, Sparkles } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { AppShell } from "@/components/AppShell";
 import { ErrorState } from "@/components/ErrorState";
@@ -38,6 +39,8 @@ function EngagementScoreBadge({ score }: { score: number }) {
 
 export default function WriterPage() {
   const { push } = useToast();
+  const searchParams = useSearchParams();
+  const initialVoterId = searchParams.get("voter_id") || undefined;
   const [selectedVoter, setSelectedVoter] = useState<Voter | null>(null);
   const [topic, setTopic] = useState("חינוך");
   const [bundle, setBundle] = useState<WriterGenerateResult | null>(null);
@@ -161,7 +164,7 @@ export default function WriterPage() {
 
         <div className="grid gap-6 lg:grid-cols-[300px_1fr_340px]">
           <div className="space-y-4">
-            <VoterSelector onSelect={(v) => void loadForVoter(v)} />
+            <VoterSelector initialVoterId={initialVoterId} onSelect={(v) => void loadForVoter(v)} />
             <label className="block text-xs text-slate-400" htmlFor="campaign-topic">
               נושא קמפיין
             </label>
